@@ -300,7 +300,57 @@ person.dog.name=${person.hello:hello}'s dog
 
 * #### 多profile文件
 
+  主配置文件的文件名可以使application-{profile}.properties/yml
+
+  默认使用application.properties的配置
+
 * #### yml支持多文档块方式
+
+  三个横杠（---）回车后分隔开了一个文档块
+
+  若有需要，可以在第一个文档块中指定要激活的文档块
+
+  ```yaml
+  spring:
+    profiles:
+      active: dev
+  ```
+
+  其他文档块的命名为
+
+  ```yaml
+  spring:
+    profiles: dev
+  ```
 
 * #### 激活制定profile
 
+  * 在配置文件中制定spring.profiles.active=dev
+
+  * 命令行：
+
+    添加Run/Debug配置的程序运行参数（Program arguments）--spring-profiles-active=dev
+
+    也可以在打包之后用命令行启动并添加参数==java -jar xxx.jar --spring.profiles.active=dev==
+
+  * 虚拟机参数（VM options）-Dspring.profiles.active=dev
+
+### 配置文件加载位置
+
+springboot启动会扫描以下位置的application.properties或者application.yml文件作为Spring Boot的默认配置文件（以下为优先级从高到低，高优先级会覆盖低优先级的相同配置，形成**互补配置**）
+
+* 项目路径/config/application.properties
+* 项目路径/application.properties
+* 类路径/config/application.properties
+* 类路径/application.properties
+
+可以通过spring.config.location来改变默认的配置文件位置（项目打包以后，可以使用命令行参数的形式启动项目的时候来指定配置文件的新位置，指定配置文件会和默认加载的配置文件一起作用）**（运维使用）**
+
+
+
+配置修改项目的访问路径（在配置文件中加）：server.context-path=/xxx
+
+#### 外部配置加载顺序（按照优先级）
+
+* 命令行参数
+* 
