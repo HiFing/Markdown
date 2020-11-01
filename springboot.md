@@ -350,7 +350,122 @@ springboot启动会扫描以下位置的application.properties或者application.
 
 配置修改项目的访问路径（在配置文件中加）：server.context-path=/xxx
 
-#### 外部配置加载顺序（按照优先级）
+#### 外部配置加载顺序（按照优先级）（常用，不全）
 
-* 命令行参数
-* 
+* 命令行参数 java -jar xxx.jar --server.port=8082（这样的话，启动的端口号为8082）
+
+**由jar包外向jar包内的顺序**
+
+* 带profile的配置文件
+  * jar包外部的application-{profile}.properties或application.yml（有spring.profile）
+  * jar包内部的application-{profile}.properties或application.yml（有spring.profile）
+
+* 不带profile的配置文件
+  * jar包外部的application.properties或application.yml
+  * jar包内部的application.properties或application.yml
+
+* @Configuration注解类上面的@PropertySource
+* 通过SpringApplication.setDefaultProperties指定的默认属性
+
+其他详见官方文档！！！
+
+### ==[自动配置原理](https://www.bilibili.com/video/BV1Et411Y7tQ?p=18)==（再看一遍！！！）
+
+[官方文档（涉及的配置）](https://docs.spring.io/spring-boot/docs/current/reference/html/appendix-application-properties.html#server-properties)
+
+* SpringBoot启动时加载主配置类，开启了自动配置功能==@EnableAutoConfiguration==
+
+* @EnableAutoConfiguration：
+
+  * 使用AutoConfigurationImportSelector给容器中导入一些组件
+
+    可以查看selectImports（getAutoConfigurationEntry）的代码看看导入了什么
+
+    ```java
+    List<String> configurations = this.getCandidateConfigurations(annotationMetadata, attributes);//获取候选的配置
+    ```
+
+    ```java
+    SpringFactoriesLoader.loadFactoryNames();
+    //扫描所有jar包类路径下面的 META-INF/spring.factories
+    //把扫描到的文件内容包装成properties对象
+    //从properties中获取到EnableAutoConfiguration.class类名对应的值，然后添加在容器中
+    ```
+
+* 每一个自动配置类进行自动配置功能
+
+  * e.g.
+
+    ```java
+    @Configuration(proxyBeanMethods = false)
+    //表征这是一个配置类
+    
+    @EnableConfigurationProperties({ServerProperties.class})
+    //启用ConfigurationProperties功能，将配置文件中对应的值和ServerProperties绑定起来，并加入到ioc容器中
+    
+    @ConditionalOnWebApplication(type = Type.SERVLET)
+    //Spring底层注解@Conditional，根据不同的条件，若满足指定的条件，整个配置类里面的配置就会生效（目前是判断是否为Web应用）
+    
+    @ConditionalOnClass({CharacterEncodingFilter.class})
+    //判断当前项目有没有这个类，CharacterEncodingFilter：Spring MVC中进行乱码解决的过滤器
+    
+    @ConditionalOnProperty(prefix = "server.servlet.encoding",value = {"enabled"},matchIfMissing = true)
+    //判断配置文件中是否存在某个配置server.servlet.encoding，“matchIfMissing = true”表示若不存在则也认为判断是成立的
+    //即使配置文件中不配置server.servlet.encoding=true，也是默认生效的
+    
+    public class HttpEncodingAutoConfiguration {
+        
+        //他已经和SpringBoot配置文件映射了
+        private final Encoding properties;
+        
+        //只有一个有参构造器的情况下，参数的值就会从容器中获取
+        public HttpEncodingAutoConfiguration(ServerProperties properties) {
+            this.properties = properties.getServlet().getEncoding();
+        }
+    
+        
+        
+        //判断通过后生成一个bean，但bean中的某些值由properties确定
+        @Bean
+        @ConditionalOnMissingBean
+        public CharacterEncodingFilter characterEncodingFilter() {
+            CharacterEncodingFilter filter = new OrderedCharacterEncodingFilter();
+            filter.setEncoding(this.properties.getCharset().name());
+            filter.setForceRequestEncoding(
+            	this.properties.shouldForce(org.springframework.boot.web.servlet.server.Encoding.Type.REQUEST));
+            filter.setForceResponseEncoding(
+                this.properties.shouldForce(org.springframework.boot.web.servlet.server.Encoding.Type.RESPONSE));
+            return filter;
+        }
+    }
+    ```
+
+    根据当前不同的条件判断，决定这个类是否生效
+
+    一旦配置类生效，这个配置类就会给容器中添加各种组件，这些组件是从对应的properties中获取的，这些类里面的每一个属性都是和配置文件绑定的
+
+    所有配置文件中能配置的属性都是在xxxProperties类中封装着，配置文件能配置什么就可以参照某个功能对应的这个属性类
+
+    ```java
+    @ConfigurationProperties(
+        prefix = "server",
+        ignoreUnknownFields = true
+    )
+    //从配置文件中获取指定的值和bean的属性进行绑定
+    
+    public class ServerProperties {}
+    ```
+
+精髓：
+
+* SpringBoot启动会加载大量的自动配置类
+* 我们看需要的功能有没有SpringBoot默认写好的自动配置类
+* 有的话再来看这个自动配置类中到底配置了哪些组件（组件有，就不需要自己配置了）
+* 组件没有的话要自己配置，给容器中自动配置类添加组件的时候，会从properties中获取某些属性，我们就可以在配置文件中指定这些属性的值
+
+xxxAutoConfiguration：自动配置类，会给容器中添加组件
+
+xxxProperties：封装配置文件中相关属性
+
+
+
