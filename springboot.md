@@ -1,4 +1,4 @@
-# SpringBoot
+# SpringBoot（1.5.x）
 
 简化Spring应用开发的一个框架，整个Spring技术栈的一个大集合，J2EE开发的一站式解决方案
 
@@ -369,7 +369,9 @@ springboot启动会扫描以下位置的application.properties或者application.
 
 其他详见官方文档！！！
 
-### ==[自动配置原理](https://www.bilibili.com/video/BV1Et411Y7tQ?p=18)==（再看一遍！！！）
+### 自动配置原理
+
+#### ==[自动配置原理](https://www.bilibili.com/video/BV1Et411Y7tQ?p=18)==（再看一遍！！！）
 
 [官方文档（涉及的配置）](https://docs.spring.io/spring-boot/docs/current/reference/html/appendix-application-properties.html#server-properties)
 
@@ -467,5 +469,153 @@ xxxAutoConfiguration：自动配置类，会给容器中添加组件
 
 xxxProperties：封装配置文件中相关属性
 
+#### 细节
+
+##### @Conditional派生注解
+
+必须是@Conditional指定的条件成立，才给容器中添加组件，配置里面配的内容才会有效
+
+与之对应的有好多：ConditionalOnWebApplication、ConditionalOnClass、......
+
+（自动配置类的生效是有条件的：我们可以通过启用配置文件中的debug=true来让控制台打印配置报告，就可以很方便的知道那些自动配置类生效）
+
+## 日志
+
+| 日志门面（日志的抽象层）                                     | 日志实现             |
+| ------------------------------------------------------------ | -------------------- |
+| ~~JCL（Jakarta Commons Logging）~~ SLF4j（Simple Logging Facade for Java） ~~jboss-logging~~ | log4j log4j2 logback |
+
+左边选一个门面，右边选一个实现
+
+SpringBoot的选择：==SLF4j和Logback==，而底层的Spring框架默认选择的是JCL
+
+### SLF4j
+
+开发的时候调用日志抽象层里面的方法，给系统里面导入slf4j的jar和logback的jar
+
+```java
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class HelloWorld {
+  public static void main(String[] args) {
+    Logger logger = LoggerFactory.getLogger(HelloWorld.class);
+    logger.info("Hello World");
+  }
+}
+```
+
+每一个日志的实现框架都有自己的配置文件，使用slf4j以后，配置文件还是做成日志实现框架自己本身的配置文件
+
+有别的框架，要用slf4j统一：
+
+* 将系统中其他日志框架先排除出去
+* 用中间包来替换原有的日志框架
+* 导入slf4j的其他框架实现
+
+**总结：**
+
+SpringBoot底层也是slf4j+logback的方式进行日志记录的
+
+SpringBoot也把其他的日志都换成了slf4j
+
+中间替换包：虽然包是log4j，但是里面已经是以SLF4J实例化了
+
+若要引用其他的框架，一定要把这个框架的默认日志依赖移除掉！pom里面<exclusions>...</exclusions>
+
+### 日志使用
+
+yml文件里添加配置
+
+com开始及以后锁定作用范围
+
+```yml
+logging:
+  level:
+    com:
+      example:
+        demo:
+          debug
+```
+
+```java
+//注意导的是这俩~
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
+
+//日志记录器
+Logger logger = LoggerFactory.getLogger(getClass());
+
+@Test
+void contextLoads() {
+    //日志级别由低到高：trace<debug<info<warn<error
+    //这样可以调整输出的日志级别来只打印某个级别及更高级别的日志
+
+    //SpringBoot默认输出Info以及以后的日志,可以在全局配置里面定义级别
+    logger.trace("这是TRACE日志...");
+    logger.debug("这是DEBUG日志...");
+    logger.info("这是INFO日志...");
+    logger.warn("这是WARN日志...");
+    logger.error("这是ERROR日志...");
+}
+```
+
+其他配置项：
+
+```yml
+#不指定路径表示在当前项目下生成日志文件
+logging:
+  file:
+    name: springboot.log
+    
+  #这俩会冲突
+  
+  #表示在当前项目路径下的spring/log文件夹内创建日志，默认为spring.log
+  file:
+    path: ./spring/log
+    
+  #自定义输出日志的格式
+  pattern:
+    console: xxx #在控制台输出的日志的格式
+    file: xxx #在指定文件输出的日志的格式
+```
+
+### 指定配置
+
+给类路径下放上自己的每个日志框架配置文件即可，SpringBoot就不使用默认的配置了
+
+不同框架该放的配置文件名不一样的哦~
+
+logback.xml：直接就被日志框架识别了
+
+logback**-spring**.xml：日志框架就不直接加载日志的配置项，由SpringBoot解析日志配置，可以使用SpringBoot的高级Profile功能
+
+```xml
+<appender>
+	<layout>
+        <springProfile name="staging">
+            <!--可以指定某段配置只在某个环境下生效-->
+        </springProfile>
+    </layout>
+</appender>
+```
+
+### 切换日志框架
+
+（不建议这么做）
+
+可以按照slf4j日志适配图进行切换slf4j+log4j
+
+exclude掉logback和log4j的替代包
+
+导入log4j包
+
+指定log4j的配置文件log4j.properties
+
+
+
+如果想用log4j2，直接排除掉spring-boot-starter-logging并依赖上spring-boot=starter-log4j2即可
+
+## Web开发
