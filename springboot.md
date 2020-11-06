@@ -619,3 +619,170 @@ exclude掉logback和log4j的替代包
 如果想用log4j2，直接排除掉spring-boot-starter-logging并依赖上spring-boot=starter-log4j2即可
 
 ## Web开发
+
+### SpringBoot对静态资源的映射规则
+
+```java
+public void addResourceHandlers(ResourceHandlerRegistry registry) {
+    if (!this.resourceProperties.isAddMappings()) {
+        logger.debug("Default resource handling disabled");
+    } else {
+        Duration cachePeriod = this.resourceProperties.getCache().getPeriod();
+        CacheControl cacheControl = this.resourceProperties.getCache().getCachecontrol().toHttpCacheControl();
+        if (!registry.hasMappingForPattern("/webjars/**")) {
+            this.customizeResourceHandlerRegistration(registry.addResourceHandler(new String[]{"/webjars/**"}).addResourceLocations(new String[]{"classpath:/META-INF/resources/webjars/"}).setCachePeriod(this.getSeconds(cachePeriod)).setCacheControl(cacheControl));
+        }
+
+        String staticPathPattern = this.mvcProperties.getStaticPathPattern();
+        if (!registry.hasMappingForPattern(staticPathPattern)) {
+            this.customizeResourceHandlerRegistration(registry.addResourceHandler(new String[]{staticPathPattern}).addResourceLocations(WebMvcAutoConfiguration.getResourceLocations(this.resourceProperties.getStaticLocations())).setCachePeriod(this.getSeconds(cachePeriod)).setCacheControl(cacheControl));
+        }
+
+    }
+}
+```
+
+* 所有/webjars/**下的所有请求都去classpath:/META-INF/resources/webjars/里面找资源
+
+  webjars以jar包的方式引入静态资源
+
+```java
+@ConfigurationProperties(
+    prefix = "spring.resources",
+    ignoreUnknownFields = false
+)
+public class ResourceProperties {}
+//可以设置和静态资源有关的参数，缓存时间等
+```
+
+* /**可以访问当前项目的任何资源（静态资源的文件夹）
+
+```
+"classpath:/META-INF/resources/"
+"classpath:/resources/"
+"classpath:/static/"
+"classpath:/public/"
+```
+
+​	比如localhost:8080/abc找不到就会去这几个文件夹下面找
+
+* 欢迎页：静态资源文件夹下面的所有index.html页面被"/**"映射（有优先级）
+
+### 模板引擎
+
+jsp、velocity、freemarker、thymeleaf
+
+Spring Boot推荐使用**Thymeleaf**
+
+#### 引入thymeleaf
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-thymeleaf</artifactId>
+</dependency>
+<!--https://docs.spring.io/spring-boot/docs/2.3.5.RELEASE/reference/htmlsingle/#using-boot-starter-->
+
+举例修改springboot默认配置的包
+<properties>
+	<thymeleaf.version>3.0.11.RELEASE</thymeleaf.version>
+    <thymeleaf-extras-data-attribute.version>2.0.1</thymeleaf-extras-data-attribute.version>
+    <thymeleaf-extras-java8time.version>3.0.4.RELEASE</thymeleaf-extras-java8time.version>
+    <thymeleaf-extras-springsecurity.version>3.0.4.RELEASE</thymeleaf-extras-springsecurity.version>
+</properties>
+注意版本号的适配
+```
+
+#### 使用thymeleaf
+
+```java
+@ConfigurationProperties(
+    prefix = "spring.thymeleaf"
+)
+public class ThymeleafProperties {
+    private static final Charset DEFAULT_ENCODING;
+    public static final String DEFAULT_PREFIX = "classpath:/templates/";
+    public static final String DEFAULT_SUFFIX = ".html";
+    private boolean checkTemplate = true;
+    private boolean checkTemplateLocation = true;
+    private String prefix = "classpath:/templates/";
+    private String suffix = ".html";
+    //只要把html页面放在templates下面，thymeleaf就会渲染了
+    private String mode = "HTML";
+```
+
+demo：
+
+```java
+@Controller
+public class HelloController {
+    @ResponseBody
+    @RequestMapping("/hello")
+    public String hello(){
+        return "Hello~";
+    }
+    
+    @RequestMapping("/success")
+    public String success(){
+        return "success";
+    }
+}
+
+/*然后在templates下面建立一个success.html就可以通过访问接口跳转到这个页面了
+注意不要使用RestController和ResponseBody，否则显示的是原来的返回信息*/
+```
+
+[语法详见官方文档](https://www.thymeleaf.org/)
+
+### Spring MVC自动配置
+
+boot对Spring MVC的默认配置：
+
+- Inclusion of `ContentNegotiatingViewResolver` and `BeanNameViewResolver` beans.
+
+  * 自动配置ViewResolver（视图解析器：根据方法的返回值得到视图对象View，视图对象决定如何渲染）
+
+  * ContentNegotiatingViewResolver：组合所有的视图解析器
+
+    可以自己定制视图解析器：给容器中添加一个视图解析器，自动就会组合进来
+
+- Support for serving static resources, including support for WebJars (covered [later in this document](https://docs.spring.io/spring-boot/docs/2.3.5.RELEASE/reference/htmlsingle/#boot-features-spring-mvc-static-content))).
+
+  * 静态资源文件夹路径、webjars
+
+- Automatic registration of `Converter`, `GenericConverter`, and `Formatter` beans.
+
+  * 自动注册了`Converter`, `GenericConverter`, `Formatter`。
+  * Converter：转化器，页面传来的数据类型需要转换
+  * Formatter：格式化器，页面带来的数据（比如时间）需要按一定格式编排
+
+- Support for `HttpMessageConverters` (covered [later in this document](https://docs.spring.io/spring-boot/docs/2.3.5.RELEASE/reference/htmlsingle/#boot-features-spring-mvc-message-converters)).
+
+  * HttpMessageConverters：SpringMVC用来转换Http请求和响应的：User--json
+  * HttpMessageConverters是从容器确定的，获取所有的HttpMessageConverter，自己给容器添加HttpMessageConverter，只需要将自己的组件注册在容器中（@Bean、@Component。。。）
+
+- Automatic registration of `MessageCodesResolver` (covered [later in this document](https://docs.spring.io/spring-boot/docs/2.3.5.RELEASE/reference/htmlsingle/#boot-features-spring-message-codes)).
+
+  * 定义错误代码生成规则
+
+- Static `index.html` support.
+
+  * 静态首页访问
+
+- Custom `Favicon` support (covered [later in this document](https://docs.spring.io/spring-boot/docs/2.3.5.RELEASE/reference/htmlsingle/#boot-features-spring-mvc-favicon)).
+
+  * favicon.ico
+
+- Automatic use of a `ConfigurableWebBindingInitializer` bean (covered [later in this document](https://docs.spring.io/spring-boot/docs/2.3.5.RELEASE/reference/htmlsingle/#boot-features-spring-mvc-web-binding-initializer)).
+
+  * 可以配置一个ConfigurableWebBindingInitializer来替换默认的（添加到容器中）
+  * 初始化WebDataBinder，请求数据转化为Bean
+
+**org.springframework.boot.autoconfigure.web：web的所有自动场景**
+
+### 修改SpringBoot的默认配置
+
+spring boot的配置模式：
+
+* springboot在自动配置组件的时候，先看容器中有没有用户自己配置的（@Bean、。。。）有的话就用用户的，没有就自动配置，如果组件有多个（ViewResolver），则用户配置和自己配置的并存
+* 
