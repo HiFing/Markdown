@@ -778,11 +778,143 @@ boot对Spring MVC的默认配置：
   * 可以配置一个ConfigurableWebBindingInitializer来替换默认的（添加到容器中）
   * 初始化WebDataBinder，请求数据转化为Bean
 
+If you want to keep those Spring Boot MVC customizations and make more [MVC customizations](https://docs.spring.io/spring/docs/5.2.10.RELEASE/spring-framework-reference/web.html#mvc) (interceptors, formatters, view controllers, and other features), you can add your own `@Configuration` class of type `WebMvcConfigurer` but **without** `@EnableWebMvc`.
+
+If you want to provide custom instances of `RequestMappingHandlerMapping`, `RequestMappingHandlerAdapter`, or `ExceptionHandlerExceptionResolver`, and still keep the Spring Boot MVC customizations, you can declare a bean of type `WebMvcRegistrations` and use it to provide custom instances of those components.
+
+If you want to take complete control of Spring MVC, you can add your own `@Configuration` annotated with `@EnableWebMvc`, or alternatively add your own `@Configuration`-annotated `DelegatingWebMvcConfiguration` as described in the Javadoc of `@EnableWebMvc`.
+
 **org.springframework.boot.autoconfigure.web：web的所有自动场景**
+
+### 扩展Spring MVC
+
+```xml
+<mvc:view-controller path="/hello" view-name="success"/>
+<mvc:interceptors>
+    <mvc:interceptor>
+        <mvc:mapping path="/hello"/>
+        <bean></bean>
+    </mvc:interceptor>
+</mvc:interceptors>
+```
+
+**编写一个配置类（@Configuration），得是实现WebMvcConfigurer，不能标注@EnableWebMvc**
+
+```java
+@Configuration
+public class MyMvcConfig implements WebMvcConfigurer {
+    @Override
+    public void addViewControllers(ViewControllerRegistry registry) {
+        registry.addViewController("/go").setViewName("success");
+    }
+}
+//表示访问go路径就会渲染出success对应的资源文件success.html
+```
+
+既保留了自动配置，又可以扩展自己的配置
+
+原理：
+
+* WebMvcAutoCongifuration是SpringMVC的自动配置类
+
+* 在做其他自动配置导入的时候，@Import(**EnableWebMvcConfiguration**.class)
+
+* ```java
+  public static class EnableWebMvcConfiguration extends DelegatingWebMvcConfiguration implements ResourceLoaderAware {}
+  ```
+
+  ```java
+  public class DelegatingWebMvcConfiguration extends WebMvcConfigurationSupport {
+      private final WebMvcConfigurerComposite configurers = new WebMvcConfigurerComposite();
+  
+      public DelegatingWebMvcConfiguration() {
+      }
+  
+      @Autowired(
+          required = false
+      )
+      public void setConfigurers(List<WebMvcConfigurer> configurers) {
+          if (!CollectionUtils.isEmpty(configurers)) {
+              this.configurers.addWebMvcConfigurers(configurers);
+          }
+  
+      }
+      ......
+  ```
+
+  容器中的所有WebMvcConfiguration都会一起作用
+
+* 自己写的配置类也会被调用
+
+### 全面接管SpringMVC
+
+SpringBoot对SpringMVC的自动配置都不需要了，所有都是自己配置
+
+需要在配置类中添加注解@EnableWebMvc，比如加上这个注解，所有的SpringMVC自动配置都会失效
+
+原理：
+
+* @EnableWebMvc的核心
+
+  ```
+  @Import({DelegatingWebMvcConfiguration.class})
+  ```
+
+* ```
+  public class DelegatingWebMvcConfiguration extends WebMvcConfigurationSupport {
+  ```
+
+* ```java
+  //WebMvcAutoConfiguration
+  @Configuration(
+      proxyBeanMethods = false
+  )
+  @ConditionalOnWebApplication(
+      type = Type.SERVLET
+  )
+  @ConditionalOnClass({Servlet.class, DispatcherServlet.class, WebMvcConfigurer.class})
+  @ConditionalOnMissingBean({WebMvcConfigurationSupport.class})
+  @AutoConfigureOrder(-2147483638)
+  @AutoConfigureAfter({DispatcherServletAutoConfiguration.class, TaskExecutionAutoConfiguration.class, ValidationAutoConfiguration.class})
+  public class WebMvcAutoConfiguration {
+  ```
+
+  **@ConditionalOnMissingBean({WebMvcConfigurationSupport.class})**
+
+  注意只有没有**WebMvcConfigurationSupport**的时候才会进行后续的自动配置，而注解@EnableWebMvc加了一个WebMvcConfigurationSupport，导致自动配置失效啦
+
+* 导入的WebMvcConfigurationSupport只是SpringMVC的最基本功能
 
 ### 修改SpringBoot的默认配置
 
 spring boot的配置模式：
 
 * springboot在自动配置组件的时候，先看容器中有没有用户自己配置的（@Bean、。。。）有的话就用用户的，没有就自动配置，如果组件有多个（ViewResolver），则用户配置和自己配置的并存
-* 
+* springboot中会有非常多的xxxCongifuration帮助进行扩展配置
+
+### RESTfulCRUD
+
+#### 默认访问首页
+
+* 一种办法是在控制类里编写RequestMapping，映射到thymeleaf能识别的template下面
+
+* 一种办法是在Configuration类里面注册一个Bean：WebMvcConfigurer
+
+  ```java
+  @Bean
+  public WebMvcConfigurer webMvcConfigurer(){
+      return new WebMvcConfigurer(){
+          @Override
+          public void addViewControllers(ViewControllerRegistry registry) {
+              registry.addViewController("/").setViewName("welcome");
+              registry.addViewController("/index.html").setViewName("welcome");
+          }
+      };
+  }
+  ```
+
+#### 国际化
+
+使用国际化配置文件
+
+使用ResourceBundle
