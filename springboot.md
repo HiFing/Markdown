@@ -734,6 +734,8 @@ public class HelloController {
 
 [语法详见官方文档](https://www.thymeleaf.org/)
 
+==被thymeleaf渲染的template路径下的页面想要获取spring默认配置的访问静态资源路径下的资源，不用加static/xxx，直接xxx就行了==
+
 ### Spring MVC自动配置
 
 boot对Spring MVC的默认配置：
@@ -915,6 +917,256 @@ spring boot的配置模式：
 
 #### 国际化
 
-使用国际化配置文件
+* Spring的管理方法：
 
-使用ResourceBundle
+  使用国际化配置文件
+
+  使用ResourceBundleMessageSource
+
+* SpringBoot的做法
+
+  **1、编写国际化配置文件，抽取页面需要显示的国际化消息**
+
+  ![](springboot/QQ截图20201110092814.png)
+  
+  更改编码方式，防止中文乱码
+
+  ![](springboot/QQ截图20201110120358.png)
+
+  **2、SpringBoot自动配置好了管理国际化资源文件的组件**
+
+```java
+public class MessageSourceAutoConfiguration {
+    private static final Resource[] NO_RESOURCES = new Resource[0];
+
+    public MessageSourceAutoConfiguration() {
+    }
+
+    @Bean
+    @ConfigurationProperties(
+        prefix = "spring.messages"
+    )
+    public MessageSourceProperties messageSourceProperties() {
+        return new MessageSourceProperties();
+    }
+
+    @Bean
+    public MessageSource messageSource(MessageSourceProperties properties) {
+        ResourceBundleMessageSource messageSource = new ResourceBundleMessageSource();
+        if (StringUtils.hasText(properties.getBasename())) {
+            //设置国际化资源文件的基础名（去掉语言国家代码）
+            //配置文件可以直接放在类路径下叫做messages.properties
+            messageSource.setBasenames(StringUtils.commaDelimitedListToStringArray(StringUtils.trimAllWhitespace(properties.getBasename())));
+        }
+
+        if (properties.getEncoding() != null) {
+            messageSource.setDefaultEncoding(properties.getEncoding().name());
+        }
+
+        messageSource.setFallbackToSystemLocale(properties.isFallbackToSystemLocale());
+        Duration cacheDuration = properties.getCacheDuration();
+        if (cacheDuration != null) {
+            messageSource.setCacheMillis(cacheDuration.toMillis());
+        }
+
+        messageSource.setAlwaysUseMessageFormat(properties.isAlwaysUseMessageFormat());
+        messageSource.setUseCodeAsDefaultMessage(properties.isUseCodeAsDefaultMessage());
+        return messageSource;
+    }
+```
+
+​		**3、页面获取国际化的值**
+
+```html
+<div class="form-group">
+    <label for="user_login" th:text="#{login.email}"></label>
+    <input type="text" name="log" id="user_login" class="form-control" value="" size="20">
+</div>
+<div class="form-group">
+    <label for="user_pass" th:text="#{login.password}"></label>
+    <a class="form-sublink" href="https://themes.getbootstrap.com/my-account/lost-password/" th:text="#{login.forgot}"></a>
+    <input type="password" name="pwd" id="user_pass" class="form-control" value="" size="20">
+</div>
+
+<p class="login-remember"><label><input name="rememberme" type="checkbox" id="rememberme"
+                                        value="forever"> Remember Me</label></p>
+<div class="form-group">
+    <input type="submit" name="wp-submit" id="wp-submit" class="btn btn-brand btn-block mb-4"
+           th:value="#{log.btn}">
+    <input type="hidden" name="redirect_to" value="https://themes.getbootstrap.com/my-account/">
+</div>
+```
+
+效果：
+
+* 默认语言为中文
+
+![](E:\workspace\md\springboot\QQ截图20201110202113.png)
+
+* 浏览器改成英文（美国）之后
+
+  ![](springboot/QQ截图20201110202320.png)
+
+原理：
+
+国际化Locale（区域信息对象）；LocaleResolver（获取区域信息对象）
+
+```java
+@Bean
+@ConditionalOnMissingBean
+@ConditionalOnProperty(
+    prefix = "spring.mvc",
+    name = {"locale"}
+)
+public LocaleResolver localeResolver() {
+    if (this.mvcProperties.getLocaleResolver() == org.springframework.boot.autoconfigure.web.servlet.WebMvcProperties.LocaleResolver.FIXED) {
+        return new FixedLocaleResolver(this.mvcProperties.getLocale());
+    } else {
+        AcceptHeaderLocaleResolver localeResolver = new AcceptHeaderLocaleResolver();
+        localeResolver.setDefaultLocale(this.mvcProperties.getLocale());
+        return localeResolver;
+    }
+}
+//默认根据请求头带来的区域信息获取Locale
+public Locale resolveLocale(HttpServletRequest request) {
+```
+
+自己定义一个LocaleResolver
+
+```java
+public class MyLocaleResolver implements LocaleResolver {
+    @Override
+    public Locale resolveLocale(HttpServletRequest httpServletRequest) {
+        String l = httpServletRequest.getParameter("l");
+        Locale locale = Locale.getDefault();
+        //根据传来的语言信息做出变化（用户按下href跳转到链接）
+        if (!StringUtils.isEmpty(l)) {
+            String[] split = l.split("_");
+            locale = new Locale(split[0], split[1]);
+        }
+        return locale;
+    }
+
+    @Override
+    public void setLocale(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse, Locale locale) {
+
+    }
+}
+```
+
+#### 登录拦截器
+
+* 开发期间模板引擎页面修改后要实时生效，需要禁用模板引擎的缓存，页面修改完成以后 ctrl+F9重新编译**spring.thymeleaf.cache=false**
+
+* 登录错误消息的显示
+
+  > ```html
+  > <p style="color: #e2401c" th:text="${msg}" th:if="${not #strings.isEmpty(msg)}"></p>
+  > ```
+
+* 拦截器登录检查
+
+  * 若只是在Controller里面判断
+
+    ```java
+    @PostMapping(value = "/user/login")
+    public String login(@RequestParam("username") String username,
+                        @RequestParam("password") String password,
+                        Map<String, Object> map,
+                        HttpSession session){
+        if(StringUtils.isEmpty(username) || !password.equals("123456")){
+            map.put("msg","login failed~");
+            return "welcome";
+        }
+        else{
+            session.setAttribute("loginUser",username);
+            return "success";
+        }
+    }
+    ```
+
+    会存在一些问题：静态资源的映射（因为渲染的页面是在/user/login下面的，而且只是这样的话，对于成功登录的页面可以不凭登录信息随便访问）
+
+  于是乎，要对需要登录才能获取的资源进行拦截(返回的success改成重定位"redirect:/go")
+
+  ```java
+  public class LoginHandlerInterceptor implements HandlerInterceptor {
+      @Override
+      public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+          //查看会话中有没有loginUser
+          Object user = request.getSession().getAttribute("loginUser");
+          if(user==null){
+              /**
+               * 未登录，拦截
+               */
+              request.setAttribute("msg","请先登录");
+              //没有loginUser就会携带信息跳转到登录页面
+              request.getRequestDispatcher("/index").forward(request,response);
+              return false;
+          }
+          else{
+              //有loginUser的话放行
+              return true;
+          }
+  
+      }
+  
+      @Override
+      public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView modelAndView) throws Exception {
+  
+      }
+  
+      @Override
+      public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) throws Exception {
+  
+      }
+  }
+  ```
+
+  注意在配置类的WebMvcConfigurer中注册拦截器
+
+  ```java
+  @Configuration
+  public class MyMvcConfig implements WebMvcConfigurer {
+      @Override
+      public void addViewControllers(ViewControllerRegistry registry) {
+          registry.addViewController("/go").setViewName("success");
+      }
+  
+      @Bean
+      public WebMvcConfigurer webMvcConfigurer(){
+          return new WebMvcConfigurer(){
+              @Override
+              public void addViewControllers(ViewControllerRegistry registry) {
+                  registry.addViewController("/").setViewName("welcome");
+                  registry.addViewController("/index").setViewName("welcome");
+                  registry.addViewController("/index.html").setViewName("welcome");
+              }
+              //注册拦截器
+              @Override
+              public void addInterceptors(InterceptorRegistry registry) {
+                  registry.addInterceptor(new LoginHandlerInterceptor()).addPathPatterns("/**")
+                          .excludePathPatterns("/","/index","/index.html","/user/login");
+                  ///user/login是表单提交的动作，不要拦截
+              }
+          };
+      }
+  
+      @Bean
+      public LocaleResolver localeResolver(){
+          return new MyLocaleResolver();
+      }
+  }
+  ```
+
+#### RESTfulCRUD
+
+对比：
+
+|      | 普通CRUD（以URI来区分操作） |   RESTful CRUD   |
+| :--: | :-------------------------: | :--------------: |
+|  增  |         addEmp?xxx          |    emp--POST     |
+|  删  |      deleteEmp?id=xxx       | emp/{id}--DELETE |
+|  改  |  updateEmp?id=xxx&xxx=xxx   |  emp/{id}--PUT   |
+|  查  |           getEmp            |     emp--GET     |
+
