@@ -1170,3 +1170,127 @@ public class MyLocaleResolver implements LocaleResolver {
 |  改  |  updateEmp?id=xxx&xxx=xxx   |  emp/{id}--PUT   |
 |  查  |           getEmp            |     emp--GET     |
 
+##### thymeleaf公共页面元素抽取
+
+给需要抽取的元素加上th:fragment="topbar"
+
+在需要放置的地方添上th:insert="~{dashboard :: topbar}"，**注意这里是波浪线**dashboard是抽取的元素所在的模板html名
+
+th:insert在里面插公共部分
+
+th:replace整个替换公共部分
+
+th:include替换公共部分的里面部分
+
+##### demo
+
+```html
+<div class="wrapper">
+    <div class="sidebar">
+        <div th:replace="commons/bar :: #sidebar(activeUri='emps')"></div>
+    </div>
+    <div class="main-panel">
+
+        <div th:replace="commons/bar :: topbar"></div>
+        <div class="modal modal-search fade" id="searchModal" tabindex="-1" role="dialog" aria-labelledby="searchModal"
+             aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <input type="text" class="form-control" id="inlineFormInputGroup" placeholder="SEARCH">
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <i class="tim-icons icon-simple-remove"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- End Navbar -->
+        <div class="content">
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="card ">
+                        <!--控制器里面拦截的是emp的post类请求-->
+                        <form th:action="@{/emp}" th:method="post">
+                            <div class="form-group">
+                                <label for="exampleFormControlInput1">名字</label>
+                                <!--注意name要和javabean里面的变量名称是一致的-->
+                                <input name="name" class="form-control" id="exampleFormControlInput1" placeholder="小明">
+                            </div>
+                            <fieldset class="form-group">
+                                <div class="row">
+                                    <legend class="col-form-label col-sm-2 pt-0">性别</legend>
+                                    <div class="col-sm-10">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="gender" id="gridRadios1"
+                                                   value="1" checked>
+                                            <label class="form-check-label" for="gridRadios1">
+                                                男
+                                            </label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="gender" id="gridRadios2"
+                                                   value="0">
+                                            <label class="form-check-label" for="gridRadios2">
+                                                女
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </fieldset>
+                            <div class="form-group">
+                                <label for="exampleFormControlSelect1">部门</label>
+                                <select class="form-control" id="exampleFormControlSelect1" name="dept.id">
+                                    <option th:value="${dept.id}" th:each="dept:${depts}"
+                                            th:text="${dept.name}"></option>
+                                </select>
+                            </div>
+                            <div class="col-auto">
+                                <button type="submit" class="btn btn-primary mb-2">提交</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+```
+
+对应的Controller:
+
+```java
+//添加员工
+//Spring MVC自动将请求参数和入参对象的属性进行绑定：要求请求参数的名字和JAVABEAN入参的对象的属性名是一样的
+@PostMapping("/emp")
+public String addEmp(Emp emp){
+    empDao.save(emp);
+    //redirect表示重定向到一个地址
+    //forward表示转发到一个地址
+    return "redirect:/emps";
+    //emps已经被之前的方法映射过了，表示定向到list页面去查看所有的列表结果
+}
+```
+
+提交的数据格式不对的话。。。：（日期）
+
+> 日期格式化：SpringMVC将页面提交的值需要转换为指定的类型
+>
+> 默认日期是按照“/”的方式来的
+
+**详见项目springboot-web内容**
+
+### 错误处理机制
+
+#### SpringBoot默认的错误处理机制
+
+![](springboot/QQ截图20201114221558.png)
+
+返回了一个错误页面
+
+其他客户端的访问错误结果
+
+![](springboot/QQ截图20201114222230.png)
+
+原理：
+
