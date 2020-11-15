@@ -1292,5 +1292,100 @@ public String addEmp(Emp emp){
 
 ![](springboot/QQ截图20201114222230.png)
 
-原理：
+原理：ErrorMvcAutoConfiguration
+
+容器中添加了：
+
+> * DefaultErrorAttributes
+>
+> * BasicErrorController，默认处理/error请求
+>
+>   ```java
+>   @Controller
+>   @RequestMapping({"${server.error.path:${error.path:/error}}"})
+>   public class BasicErrorController extends AbstractErrorController {
+>       ...
+>       @RequestMapping(
+>           produces = {"text/html"}//浏览器发送的请求来到这里面处理，产生html类型的数据
+>       )
+>       public ModelAndView errorHtml(HttpServletRequest request, HttpServletResponse response) {
+>           HttpStatus status = this.getStatus(request);
+>           Map<String, Object> model = Collections.unmodifiableMap(this.getErrorAttributes(request, this.getErrorAttributeOptions(request, MediaType.TEXT_HTML)));
+>           response.setStatus(status.value());
+>           
+>           //去哪个页面作为错误页面，包含了页面地址和页面内容
+>           ModelAndView modelAndView = this.resolveErrorView(request, response, status, model);
+>           return modelAndView != null ? modelAndView : new ModelAndView("error", model);
+>       }
+>   
+>       @RequestMapping//其他客户端来到这个客户端处理，产生json数据
+>       public ResponseEntity<Map<String, Object>> error(HttpServletRequest request) {
+>           HttpStatus status = this.getStatus(request);
+>           if (status == HttpStatus.NO_CONTENT) {
+>               return new ResponseEntity(status);
+>           } else {
+>               Map<String, Object> body = this.getErrorAttributes(request, this.getErrorAttributeOptions(request, MediaType.ALL));
+>               return new ResponseEntity(body, status);
+>           }
+>       }
+>   ```
+>
+> * ErrorPageCustomizer
+>
+>   ```java
+>   @Value("${error.path:/error}")
+>   private String path = "/error";//系统出现错误以后来到error请求进行处理（web.xml注册的错误页面处理）
+>   ```
+>
+> * DefaultErrorViewResolver
+>
+>   ```java
+>   public ModelAndView resolveErrorView(HttpServletRequest request, HttpStatus status, Map<String, Object> model) {
+>       ModelAndView modelAndView = this.resolve(String.valueOf(status.value()), model);
+>       if (modelAndView == null && SERIES_VIEWS.containsKey(status.series())) {
+>           modelAndView = this.resolve((String)SERIES_VIEWS.get(status.series()), model);
+>       }
+>   
+>       return modelAndView;
+>   }
+>   
+>   private ModelAndView resolve(String viewName, Map<String, Object> model) {
+>       //默认Sb可以去找到一个页面 比如：error/404
+>       String errorViewName = "error/" + viewName;
+>       //模板引擎若可以解析这个页面地址就去用模板引擎
+>       TemplateAvailabilityProvider provider = this.templateAvailabilityProviders.getProvider(errorViewName, this.applicationContext);
+>       //模板引擎可用的时候返回到errorViewName指定的试图地址
+>       //模板引擎不可用就在静态资源文件夹下面找errorViewName对应的页面 比如error/404.html
+>       return provider != null ? new ModelAndView(errorViewName, model) : this.resolveResource(errorViewName, model);
+>   }
+>   ```
+>
+>   步骤：一旦出现4xx和5xx之类的错误，ErrorPageCustomizer就会生效，就会来到/error请求，就会被BasicErrorController处理
+>
+>   * 相应页面：去哪个页面是由DefaultErrorViewResolver解析得到的
+>
+>   ```java
+>   protected ModelAndView resolveErrorView(HttpServletRequest request, HttpServletResponse response, HttpStatus status, Map<String, Object> model) {
+>       Iterator var5 = this.errorViewResolvers.iterator();
+>   
+>       ModelAndView modelAndView;
+>       //把所有的errorViewResolvers里面的视图放到modelAndView
+>       do {
+>           if (!var5.hasNext()) {
+>               return null;
+>           }
+>   
+>           ErrorViewResolver resolver = (ErrorViewResolver)var5.next();
+>           modelAndView = resolver.resolveErrorView(request, status, model);
+>       } while(modelAndView == null);
+>   
+>       return modelAndView;
+>   }
+>   ```
+
+#### 定制错误响应
+
+* 有模板引擎就直接在模板引擎文件夹里面的error文件夹下面放此状态码对应的的页面，比如error/404.html
+
+  可以使用4xx和5xx作为错误页面的文件名来匹配这种类型的所有错误，精确优先（优先寻找精确的状态码html）
 
