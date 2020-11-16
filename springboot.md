@@ -892,7 +892,8 @@ SpringBoot对SpringMVC的自动配置都不需要了，所有都是自己配置
 spring boot的配置模式：
 
 * springboot在自动配置组件的时候，先看容器中有没有用户自己配置的（@Bean、。。。）有的话就用用户的，没有就自动配置，如果组件有多个（ViewResolver），则用户配置和自己配置的并存
-* springboot中会有非常多的xxxCongifuration帮助进行扩展配置
+* springboot中会有非常多的**xxxCongifuration**帮助进行扩展配置
+* springboot中会有很多的**xxxCustomizer**帮助进行定制的配置
 
 ### RESTfulCRUD
 
@@ -1298,6 +1299,46 @@ public String addEmp(Emp emp){
 
 > * DefaultErrorAttributes
 >
+>   在页面共享信息
+>
+>   ```java
+>   public Map<String, Object> getErrorAttributes(WebRequest webRequest, ErrorAttributeOptions options) {
+>       Map<String, Object> errorAttributes = this.getErrorAttributes(webRequest, options.isIncluded(Include.STACK_TRACE));
+>       if (Boolean.TRUE.equals(this.includeException)) {
+>           options = options.including(new Include[]{Include.EXCEPTION});
+>       }
+>   
+>       if (!options.isIncluded(Include.EXCEPTION)) {
+>           errorAttributes.remove("exception");
+>       }
+>   
+>       if (!options.isIncluded(Include.STACK_TRACE)) {
+>           errorAttributes.remove("trace");
+>       }
+>   
+>       if (!options.isIncluded(Include.MESSAGE) && errorAttributes.get("message") != null) {
+>           errorAttributes.put("message", "");
+>       }
+>   
+>       if (!options.isIncluded(Include.BINDING_ERRORS)) {
+>           errorAttributes.remove("errors");
+>       }
+>   
+>       return errorAttributes;
+>   }
+>   
+>   /** @deprecated */
+>   @Deprecated
+>   public Map<String, Object> getErrorAttributes(WebRequest webRequest, boolean includeStackTrace) {
+>       Map<String, Object> errorAttributes = new LinkedHashMap();
+>       errorAttributes.put("timestamp", new Date());
+>       this.addStatus(errorAttributes, webRequest);
+>       this.addErrorDetails(errorAttributes, webRequest, includeStackTrace);
+>       this.addPath(errorAttributes, webRequest);
+>       return errorAttributes;
+>   }
+>   ```
+>
 > * BasicErrorController，默认处理/error请求
 >
 >   ```java
@@ -1388,4 +1429,185 @@ public String addEmp(Emp emp){
 * 有模板引擎就直接在模板引擎文件夹里面的error文件夹下面放此状态码对应的的页面，比如error/404.html
 
   可以使用4xx和5xx作为错误页面的文件名来匹配这种类型的所有错误，精确优先（优先寻找精确的状态码html）
+  
+  页面能获取的信息：
+  
+  * timestamp：时间戳
+  * status：状态码
+  * error：错误提示
+  * exception：异常对象
+  * msg：异常消息
+  * errors：JSR303数据校验的错误
+
+* 没有模板引擎（模板引擎找不到这个页面）就在静态资源文件下找
+
+* 都没有？就默认来到SpringBoot默认的空白页面error视图（DefaultErrorView）
+
+#### 定制错误数据
+
+* 自定义异常处理和返回定制json数据
+
+    ```java
+    @ControllerAdvice
+    public class MyExceptionHandler {
+        //发生UserNotExistException之后会被MyExceptionHandler捕获，处理后，数据以json格式返回（@ResponseBody）
+        @ResponseBody
+        @ExceptionHandler(UserNotExistException.class)
+        public Map<String, Object> handlerException(Exception e){
+            Map<String,Object>map=new HashMap<>();
+            map.put("code","user.notexist");
+            map.put("message",e.getMessage());
+            return map;
+        }
+    }
+    ```
+    
+    ```java
+    public class UserNotExistException extends RuntimeException{
+        public UserNotExistException() {
+            super("User not exist");
+        }
+    }
+    ```
+    
+    没有自适应效果。。。（浏览器和客户端都是返回json）
+
+* 转发到/error进行自适应响应（/error的请求会被BasicErrorController处理，若是浏览器的，返回一个html，若是客户端，就返回json）
+
+  ```java
+  @ControllerAdvice
+  public class MyExceptionHandler {
+  //    @ResponseBody
+      @ExceptionHandler(UserNotExistException.class)
+      public String handlerException(Exception e, HttpServletRequest request){
+          Map<String,Object>map=new HashMap<>();
+          //传入自己的错误状态码，不传的话就是默认的200。。。,就进不去定制的错误页面解析流程
+          /**
+           * Integer statusCode = (Integer)request.getAttribute("javax.servlet.error.status_code");
+           */
+          request.setAttribute("javax.servlet.error.status_code",500);
+          map.put("code","user.notexist");
+          map.put("message",e.getMessage());
+          return "forward:/error";
+      }
+  }
+  ```
+
+* 将定制的数据携带出去
+
+  出现错误以后会来到error请求，会被BasicErrorController处理，响应出去可以获取的数据是由getErrorAttributes得到的（这是被AbstractErrorController（ErrorController）规定的方法）
+
+  * 可以编写一个ErrorController的实现类（或者是AbstractErrorController的子类）放在容器中【因为是@OnMissingBean】
+
+  * 页面上能用的数据，或者是json返回的能用的数据是由errorAttributes.getErrorAttributes得到的
+
+    容器中DefaultErrorAttributes.getErrorAttributes()默认进行数据处理
+
+    ```java
+    @Component
+    public class MyErrorAttributes extends DefaultErrorAttributes {
+        @Override
+        public Map<String, Object> getErrorAttributes(WebRequest webRequest, ErrorAttributeOptions options) {
+            Map<String, Object> map = super.getErrorAttributes(webRequest, options);
+            map.put("signature","Barry");
+            return map;
+        }
+    }
+    ```
+
+* 最终的效果：响应是自适应的，可以通过定制ErrorAttributes改变需要返回的内容
+
+![](springboot/QQ截图20201116172715.png)
+
+![](springboot/QQ截图20201116172740.png)
+
+![](springboot/QQ截图20201116172831.png)
+
+![](springboot/QQ截图20201116172851.png)
+
+### 嵌入式Servlet容器配置修改
+
+SpringBoot默认使用嵌入的Tomcat![](springboot/QQ截图20201116185550.png)
+
+* 如何定制和修改Servlet容器的相关配置？
+
+  ```properties
+  server.port=8085
+  server.servlet.context-path=/crud
+  
+  //通用的Servlet容器设置
+  server.xxx
+  //Tomcat的设置
+  server.tomcat
+  ```
+
+  编写一个WebServerFactoryCustomizer写到配置文件里面来修改servlet容器的配置
+
+  ```java
+  @Bean
+  public WebServerFactoryCustomizer webServerFactoryCustomizer(){
+      return new WebServerFactoryCustomizer<ConfigurableWebServerFactory>() {
+          @Override
+          public void customize(ConfigurableWebServerFactory factory) {
+              factory.setPort(8083);
+          }
+      };
+  }
+  ```
+
+  由于Springboot默认是以jar包的方式启动嵌入式的Servlet容器来启动SpringBoot的web应用，没有web.xml文件，那么注册三大组件（Servlet、Filter、Listener）就得用以下方式
+
+  * ServletRegistrationBean
+
+    ```java
+    @Bean
+    public ServletRegistrationBean myServlet(){
+        return new ServletRegistrationBean(new MyServlet(),"/myServlet");
+    }
+    ```
+
+  * FilterRegistrationBean
+
+    ```java
+    @Bean
+    public FilterRegistrationBean myFilter(){
+        FilterRegistrationBean bean = new FilterRegistrationBean();
+        bean.setFilter(new MyFilter());
+        bean.setUrlPatterns(Arrays.asList("/hello","/myServlet"));
+        return bean;
+    }
+    ```
+
+  * ServletListenerRegistrationBean
+
+    ```java
+    @Bean
+    public ServletListenerRegistrationBean myListener(){
+        ServletListenerRegistrationBean bean = new ServletListenerRegistrationBean(new MyListener());
+        return bean;
+    }
+    ```
+
+    SpringBoot帮我们自动配置SpringMVC的时候，自动地注册了SpringMVC的前端控制器：DispatcherServlet
+
+    ```java
+    @Bean(
+        name = {"dispatcherServletRegistration"}
+    )
+    @ConditionalOnBean(
+        value = {DispatcherServlet.class},
+        name = {"dispatcherServlet"}
+    )
+    public DispatcherServletRegistrationBean dispatcherServletRegistration(DispatcherServlet dispatcherServlet, WebMvcProperties webMvcProperties, ObjectProvider<MultipartConfigElement> multipartConfig) {
+        DispatcherServletRegistrationBean registration = new DispatcherServletRegistrationBean(dispatcherServlet, webMvcProperties.getServlet().getPath());
+        //默认拦截：/ 所有请求；包括静态资源，但是不拦截jsp请求（/*会拦截jsp）
+        //可以通过spring.mvc.servlet.path修改前端控制器默认拦截的请求路径
+        registration.setName("dispatcherServlet");
+        registration.setLoadOnStartup(webMvcProperties.getServlet().getLoadOnStartup());
+        multipartConfig.ifAvailable(registration::setMultipartConfig);
+        return registration;
+    }
+    ```
+
+* 能不能支持其他的servlet容器？
 
