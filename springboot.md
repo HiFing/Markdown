@@ -1611,3 +1611,15 @@ SpringBoot默认使用嵌入的Tomcat![](springboot/QQ截图20201116185550.png)
 
 * 能不能支持其他的servlet容器？
 
+  > Jetty（长连接）
+  >
+  > Undertow（不支持JSP）
+
+  ![](springboot/QQ截图20201117215945.png)
+
+  #### 替换为其他嵌入式Servlet容器
+
+  默认支持：
+
+  Tomcat（默认）、Jetty、Undertow(要用别的容器得先排除自带的Tomcat，再添加依赖)
+
