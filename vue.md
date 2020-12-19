@@ -1,3 +1,5 @@
+# 2020/11
+
 ### 计算属性
 
 结果作为data里面的东西（property）
@@ -173,3 +175,44 @@ methods: {
 ```
 
 ### 事件处理
+
+。。。
+
+# 2020/12
+
+## 1 概念和基础操作
+
+* MVVM（model view viewmodel）
+
+* 创建Vue实例传入的options
+
+  > el：可以使string或者HTMLElement
+  >
+  > data：Object或者Function（组件当中data必须是一个函数）
+  >
+  > methods：{key（String）:Function}
+
+* 生命周期：
+
+![](vue/lifecycle.png)
+
+* v-once：不会根据数据的改变而改变
+* v-html：会把属性值解析成DOM
+
+* v-text：会覆盖text
+
+* v-pre：原封不动地显示，不要解析
+
+* v-cloak：未解析完成时有这个属性，解析成功会消除这个属性
+
+* v-bind：绑定属性（语法糖写法——:src="xxx"）
+
+  > 动态绑定class：
+  >
+  > :class="{xxx:true, xxx:false, xxx:true}"，json放在data里面  //对象写法
+  >
+  > :class="[xxx,xxx]"  //数组写法
+  >
+  > 绑定style类似，注意属性值时字符串（加引号）！否则会到data里面找，key可以用驼峰，也可以横杠分割
+
+## 2 基础操作（计算属性）

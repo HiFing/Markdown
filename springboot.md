@@ -1,4 +1,4 @@
-# SpringBoot（1.5.x）
+# SpringBoot核心（1.5.x）
 
 简化Spring应用开发的一个框架，整个Spring技术栈的一个大集合，J2EE开发的一站式解决方案
 
@@ -1623,3 +1623,472 @@ SpringBoot默认使用嵌入的Tomcat![](springboot/QQ截图20201116185550.png)
 
   Tomcat（默认）、Jetty、Undertow(要用别的容器得先排除自带的Tomcat，再添加依赖)
 
+### ==未完待续。。。==
+
+## Docker(Centos)
+
+### 常用命令
+
+切换到root：sudo su root
+
+启动docker：systemctl start docker
+
+开机启动docker：systemctl enable docker
+
+停止docker：systemctl stop docker
+
+```json
+换源
+daemon.json
+{
+    "registry-mirrors": [
+    	"https://docker.mirrors.ustc.edu.cn"
+  	]
+}
+```
+
+
+
+-------------------------------------------------
+
+检索：docker search xxx
+
+拉取：docker pull 镜像名：tag
+
+查看镜像：docker images
+
+删除：docker rmi xxx（id）
+
+### 容器操作
+
+运行：docker run --name 自定义容器名 -d(后台运行) 指定镜像模板
+
+```shell
+[root@localhost barry]# docker run --name myTomcat -d -p 主机端口:容器端口 tomcat:latest
+5a5b6f26b3cb2f5c6c6c80df1d99ecff779013b5806b3944b3debc773a314933
+
+启动一个做了端口映射的容器
+[root@localhost barry]# docker run -p 8888:8080 -d tomcat
+```
+
+查看运行的容器：docker ps
+
+> 追加-a查看所有的容器
+
+停止运行中的容器：docker stop 容器id或名字
+
+启动容器：docker start 容器id
+
+删除容器：docker rm 容器id
+
+防火墙：
+
+> 关闭：service firewalld stop
+>
+> 查看状态：。。。。 status
+>
+> 改了还是404：docker exec -it 你的tomcatId /bin/bash
+
+查看log：docker logs 容器名或容器id
+
+moreInfo：https://docs.docker.com/engine/reference/commandline/docker/
+
+### MySQL
+
+启动注意！
+
+> docker run --name MyMySQL -d mysql
+>
+> 这样的话mysql就退出了
+>
+> 需要指定root密码：docker run --name MyMySQL -e MYSQL_ROOT_PASSWORD=123456 -p 3306:3306 -d mysql
+
+使用自定义配置文件/my/custom启动
+
+```shell
+$ docker run --name some-mysql -v /my/custom:/etc/mysql/conf.d -e MYSQL_ROOT_PASSWORD=my-secret-pw -d mysql:tag
+```
+
+不用配置文件启动，直接设定参数
+
+```shell
+$ docker run --name some-mysql -e MYSQL_ROOT_PASSWORD=my-secret-pw -d mysql:tag --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+```
+
+## SpringBoot与数据访问
+
+配置文件
+
+```
+spring.datasource.driverClassName=com.mysql.cj.jdbc.Driver
+spring.datasource.url=jdbc:mysql://172.29.52.148:3306/jdbc
+spring.datasource.username=root
+spring.datasource.password=123456
+```
+
+自动配置原理：
+
+org.springframework.boot.autoconfigure.jdbc
+
+SpringBoot默认支持
+
+```
+org.apache.tomcat.jdbc.pool.DataSource
+com.zaxxer.hikari.HikariDataSource
+org.apache.commons.dbcp2.BasicDataSource
+oracle.ucp.jdbc.PoolDataSource
+```
+
+自动执行sql
+
+```yml
+spring:
+	datasource:
+        schema: 
+          - classpath:sql/*.sql
+```
+
+### 自定义数据源类型
+
+```java
+@Configuration(
+    proxyBeanMethods = false
+)
+@ConditionalOnMissingBean({DataSource.class})
+@ConditionalOnProperty(
+    name = {"spring.datasource.type"}
+)
+static class Generic {
+    Generic() {
+    }
+
+    @Bean
+    DataSource dataSource(DataSourceProperties properties) {
+        //利用DataSourceBuilder创建数据源，利用反射创建响应type的数据源，并且绑定相关属性
+        return properties.initializeDataSourceBuilder().build();
+    }
+}
+```
+
+### 整合Druid数据源
+
+导入数据源
+
+```yml
+spring:
+  datasource:
+    username: root
+    password: 123456
+    url: jdbc:mysql://172.29.52.148:3306/jdbc
+    driver-class-name: com.mysql.jdbc.Driver
+    type: com.alibaba.druid.pool.DruidDataSource
+```
+
+配置
+
+```java
+@Configuration
+public class DruidConfig {
+
+    @ConfigurationProperties(prefix = "spring.datasource")
+    @Bean
+    public DataSource druid() {
+        return new DruidDataSource();
+    }
+
+    //配置Druid监控
+
+    //1、配置一个管理后台的Servlet
+    @Bean
+    public ServletRegistrationBean statViewServlet() {
+        ServletRegistrationBean bean = new ServletRegistrationBean(new StatViewServlet(), "/druid/*");
+        Map<String, String> initParams = new HashMap<>();
+        initParams.put("loginUsername", "admin");
+        initParams.put("loginPassword", "123");
+        initParams.put("allow", "");//允许所有的访问
+        bean.setInitParameters(initParams);
+        return bean;
+    }
+
+    //2、配置一个web监控的filter
+    @Bean
+    public FilterRegistrationBean webStatFilter() {
+        FilterRegistrationBean bean = new FilterRegistrationBean();
+        bean.setFilter(new WebStatFilter());
+        Map<String, String> initParams = new HashMap<>();
+        initParams.put("exclusions", "*.js,*.css,/druid/*");//不拦截静态文件
+        bean.setInitParameters(initParams);
+        bean.setUrlPatterns(Arrays.asList("/*"));
+
+        return bean;
+    }
+}
+```
+
+### 整合Mybatis
+
+```
+<dependency>
+    <groupId>org.mybatis.spring.boot</groupId>
+    <artifactId>mybatis-spring-boot-starter</artifactId>
+    <version>2.1.4</version>
+</dependency>
+```
+
+![](springboot/QQ截图20201128213322.png)
+
+#### mybatis注解版
+
+```
+@Mapper
+public interface DeptMapper {
+    @Select("select * from Dept where id=#{id}")
+    public Dept getDeptById(Integer id);
+
+    @Delete("delete from Dept where id=#{id}")
+    public int deleteDeptById(Integer id);
+
+    @Insert("insert into Dept(name) values(#{name})")
+    @Options(useGeneratedKeys = true,keyProperty = "id")
+    public int insertDept(Dept dept);
+
+    @Update("update Dept set name=#{name} where id={#id}")
+    public int updateDept(Dept dept);
+}
+```
+
+```
+@RestController
+public class DeptController {
+
+    @Autowired(required = false)
+    DeptMapper mapper;
+
+    @GetMapping("/dept/{id}")
+    public Dept getDept(@PathVariable("id") Integer id){
+        return mapper.getDeptById(id);
+    }
+
+    @GetMapping("/dept")
+    public Dept insertDept(Dept dept){
+        mapper.insertDept(dept);
+        return dept;
+    }
+}
+```
+
+自定义Mybatis规则
+
+给容器中添加一个ConfigurationCustomizer
+
+```
+@Configuration
+public class MyBatisConfig {
+    @Bean
+    public ConfigurationCustomizer configurationCustomizer(){
+        return new ConfigurationCustomizer() {
+            @Override
+            public void customize(org.apache.ibatis.session.Configuration configuration) {
+                configuration.setMapUnderscoreToCamelCase(true);
+            }
+        };
+    }
+}
+```
+
+批量扫描所有mapper,就不用一个个加注解了
+
+```
+@Configuration
+@MapperScan(value = "com.example.demo.mapper")
+标在配置类上
+```
+
+#### mybatis配置版
+
+```yml
+mybatis:
+  #全局配置文件位置
+  config-location: classpath:mybatis/mybatis-config.xml
+  #sql映射文件的位置
+  mapper-locations: classpath:mybatis/mapper/*.xml
+```
+
+Dao
+
+```
+public interface PersonMapper {
+
+    public Person getPersonById(Integer id);
+
+    public void deletePersonById(Integer id);
+
+    public void updatePerson(Person p);
+
+    public void insertPerson(Person p);
+}
+不带注解Mapper是因为已经在配置类里写了@MapperScan(value = "com.example.demo.mapper")
+```
+
+映射请求
+
+```
+@RestController
+public class PersonController {
+
+    @Autowired(required = false)
+    PersonMapper personMapper;
+
+    @GetMapping("/person/{id}")
+    public Person getPersonById(@PathVariable("id") Integer id){
+        return personMapper.getPersonById(id);
+    }
+
+    @GetMapping("/person")
+    public void insertPerson(Person p){
+        personMapper.insertPerson(p);
+    }
+}
+```
+
+配置文件
+
+```
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.demo.mapper.PersonMapper">
+    <select id="getPersonById" resultType="com.example.demo.entity.Person">
+        select * from Person where id=#{id}
+    </select>
+    <insert id="insertPerson">
+        insert into Person(name,gender,dept) values (#{name},#{gender},#{dept})
+    </insert>
+</mapper>
+```
+
+### SpringData JPA
+
+yml
+
+```yml
+spring:
+  datasource:
+    url: jdbc:mysql://192.168.177.77/jpa
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      # 更新或创建数据表
+      ddl-auto: update
+    #控制台显示SQL
+    show-sql: true
+```
+
+dao
+
+```java
+public interface UserRepo extends JpaRepository<User,Integer> {
+}
+```
+
+controller
+
+```java
+@RestController
+public class UserController {
+    @Autowired
+    UserRepo userRepo;
+
+    @GetMapping("/user/{id}")
+    public User getUserById(@PathVariable("id") Integer id){
+        User user = userRepo.findById(id).orElse(null);
+        return user;
+    }
+
+    @GetMapping("/user")
+    public User insertUser(User user){
+        User save = userRepo.save(user);
+        return save;
+    }
+
+}
+```
+
+entity
+
+```java
+@Entity
+@Table(name = "user")
+public class User {
+
+    //主键自增
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
+    @Column
+    private String name;
+    @Column
+    private String email;
+
+    public Integer getId() {
+        return id;
+    }
+
+    public void setId(Integer id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+}
+```
+
+## 启动配置原理
+
+几个重要的事件回调机制
+
+ApplicationContextInitializer
+
+SpringApplicationRunListener
+
+ApplicationRunner
+
+CommandLineRunner
+
+### ==未完待续。。。==
+
+
+
+
+
+# SpringBoot 高级
+
+## 缓存
+
+![](springboot/QQ截图20201130222714.png)
+
+## 消息队列
+
+## 检索
+
+## 任务
+
+## 安全
+
+## 分布式
