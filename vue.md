@@ -584,4 +584,69 @@ methods: {
   同理，组件中要求data为一个函数，就是为了防止返回给每个组件的data是不同的对象，因为组件是要拿来复用的
   ```
 
-* 父子组件通信
+
+## 4 父子组件通信
+
+* 父组件通过props向子组件传递数据
+
+  子组件通过事件向父组件发送消息
+
+  ```html
+  <body>
+      <div id="app">
+          <cpn :cmessage="message" :cmovies="movies"></cpn>
+      </div>
+  
+  </body>
+  
+  <template id="cpn">
+      <div>
+          <h2>{{cmessage}}</h2>
+          <ul>
+              <li v-for="item in cmovies">{{item}}</li>
+          </ul>
+      </div>
+  </template>
+  ```
+
+  ```js
+  const cpn = {
+          template: '#cpn',
+          data() {
+              return {}
+          },
+          props: {
+              //也可以用array的写法["cmessage","cmovies"]，但是这样可以限定类型
+              //这种写法可以提供默认值
+              cmessage: {
+                  type: String,
+                  default: "Halo!",
+                  //表示必须要传这个值，否则报错
+                  required: true
+              },
+              //类型是对象或者数组时，默认值必须是一个函数default(){return xxx}
+              cmovies: Array
+          }
+      }
+      const app = new Vue({
+          el: "#app",
+          data: {
+              message: "hello",
+              movies: ["la la land","antman","a dog's purpose"]
+          },
+          components: {
+              //增强写法，等价于cpn：cpn
+              cpn
+          }
+      })
+  ```
+
+  
+
+  props里面可以有的类型
+
+![](vue/Snipaste_2020-12-23_01-39-12.png)
+
+​			还可以自定义类型
+
+​			![](vue/Snipaste_2020-12-23_01-44-31.png)
