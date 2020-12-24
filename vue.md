@@ -647,6 +647,107 @@ methods: {
 
 ![](vue/Snipaste_2020-12-23_01-39-12.png)
 
-​			还可以自定义类型
+​			还可以是自定义类型：
 
 ​			![](vue/Snipaste_2020-12-23_01-44-31.png)
+
+* v-bind不支持驼峰，可以用小段杠连接单词，比如`:my-info='info'`
+
+  html属性名称不区分大小写
+
+* 子组件传数据给父组件：子组件使用`this.$emit("xxx")`产生事件，父组件通过`v-bind:xxx='父组件里面的方法'`来监听这个事件，**注意事件名用驼峰的话有坑**
+
+  ```html
+  <body>
+      <div id="app">
+          <!--@childclick='handleChildClick这里没有带参数，若是一般的事件（如click），则会默认把浏览器默认事件对象event传过去，而此时默认传的是事件携带的数据-->
+          <cpn @childclick='handleChildClick'></cpn>
+      </div>
+  </body>
+  
+  <template id="cpn">
+      <div>
+          <button v-for="item in buttons" @click="btnClick(item)" style="margin-right: 10px;">{{item}}</button>
+      </div>
+  </template>
+  
+  <script src="../js/vue.js"></script>
+  <script>
+      const cpn = {
+          template: '#cpn',
+          data() {
+              return {
+                  buttons: ["item 1","item 2","item 3"]
+              }
+          },
+          methods:{
+              btnClick(item){
+                  //发射自定义事件
+                  this.$emit('childclick',item);
+              }
+          }
+      }
+  
+      const app = new Vue({
+          el: '#app',
+          data: {},
+          methods:{
+              handleChildClick(item){
+                  console.log('itehandleChildClickm started');
+                  console.log(item);
+              }
+          },
+          components: {
+              cpn
+          }
+      })
+  </script>
+  ```
+
+* 若子组件中有model绑定数据，而且还想绑定父组件的对应的数据，不能直接绑定props里面的参数，应该要在子组件data或者computed里面存一份props里面接收的值（xxx:this.xxx），之后可以通过model的等效写法（@input=""、:value=""）根据input的值变化（@input）生成事件到达父组件，以此来更新父组件的数据。（也可以根据子组件的数据的**watch**来生成事件）
+
+* 父组件可以通过this.$children获取子组件数组
+
+  **推荐用法**：父组件还可以通过this.$refs获取写有ref属性的子组件，返回多个子组件对象（{ref属性值:子组件,xxxxxx}）
+
+* 子组件可以通过$parent访问父组件，但是耦合度太高，不建议使用，还可以通过$root访问根组件Vue实例
+
+## 5 插槽slot
+
+* 组件插槽
+
+  > 为了让封装的组件更加具有扩展性
+  >
+  > 让使用者决定组件内部一些内容到底展示什么
+
+* 插槽的基本使用
+
+  ```html
+  子组件("cpn")里面放一个插槽：<slot></slot>
+  外面通过<cpn><div>xxx</div></cpn>的方法往插槽里面放东西，放多个同级的DOM会全部被加载到插槽里面
+  ```
+
+  插槽默认值
+
+  ```html
+  <slot><div>xxx</div></slot>
+  外面不放东西就默认放<div>xxx</div>
+  否则就替换成外面放的东西
+  ```
+
+* **具名插槽**
+
+  ```html
+  <slot name="left"></slot>
+  <slot name="middle"></slot>
+  <slot name="right"></slot>
+  <slot></slot>
+  
+  插槽没有名字的时候，外面传过来若是没有指定slot的名字，则没有名字的插槽全都会受到影响
+  
+  <cpn><button slot="left">xxx</button></cpn>
+  指定了插槽名字就只会影响那个被指定的插槽
+  ```
+
+* 作用域插槽
+  * 编译作用域
