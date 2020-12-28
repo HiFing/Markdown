@@ -963,7 +963,7 @@ methods: {
 
   ![](vue/QQ截图20201228211115.png)
 
-## 6 Webpack Plugin、Vue CLI
+## 6 Webpack Plugin
 
 * 版权标注
 
@@ -972,3 +972,90 @@ methods: {
 * htmlwebpackplugin会把html也给打包进去，js会自动生成
 
 ![](vue/QQ截图20201228223428.png)
+
+* 搭建本地服务器webpack-dev-plugin
+
+  注意高版本的运行这个："dev": "webpack serve"
+
+* webpack配置文件分离：
+
+  不再需要webpack.config.js
+
+  ```json
+    "scripts": {
+      "test": "echo \"Error: no test specified\" && exit 1",
+      //不再需要webpack.config.js
+      "build": "webpack --config ./build/prod.config.js",
+      "dev": "webpack serve --config ./build/dev.config.js"
+    },
+  ```
+
+  ```js
+  base.config.js
+  
+  const path = require('path')
+  const HtmlWebpackPlugin = require('html-webpack-plugin')
+  
+  module.exports = {
+      entry: './src/main.js',
+      output: {
+          path: path.resolve(__dirname, '../dist'),
+          filename: 'bundle.js'
+      },
+      module: {
+          rules: [{
+                  test: /\.css$/,
+                  //顺序不能乱，从右向左读
+                  use: ['style-loader', 'css-loader']
+              },
+              {
+                  test: /\.less$/,
+                  use: [{
+                      loader: "style-loader" // creates style nodes from JS strings
+                  }, {
+                      loader: "css-loader" // translates CSS into CommonJS
+                  }, {
+                      loader: "less-loader" // compiles Less to CSS
+                  }]
+              }
+          ]
+      },
+      plugins: [
+          new HtmlWebpackPlugin({
+              template: 'index.html'
+          })
+      ]
+  }
+  ```
+
+  ```js
+  prod.config.js
+  
+  const UglifyJsPlugin = require('uglifyjs-webpack-plugin')
+  const webpackMerge = require('webpack-merge')
+  const baseConfig = require('./base.config')
+  
+  module.exports = webpackMerge.merge(baseConfig, {
+          plugins: [
+              new UglifyJsPlugin()
+          ]
+      }
+  
+  )
+  ```
+
+  ```js
+  dev.config.js
+  
+  const webpackMerge = require('webpack-merge')
+  const baseConfig = require('./base.config')
+  
+  module.exports = webpackMerge.merge(baseConfig, {
+      devServer: {
+          contentBase: '../dist',
+          inline: true
+      }
+  })
+  ```
+
+## 7  Vue CLI
