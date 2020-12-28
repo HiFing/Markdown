@@ -712,9 +712,11 @@ methods: {
 
 * 子组件可以通过$parent访问父组件，但是耦合度太高，不建议使用，还可以通过$root访问根组件Vue实例
 
-## 5 插槽slot
+## 5 插槽slot、模块化开发、webpack
 
-* 组件插槽
+* 组件插槽 **(新版为v-slot)**
+
+  https://cn.vuejs.org/v2/guide/components-slots.html
 
   > 为了让封装的组件更加具有扩展性
   >
@@ -747,7 +749,226 @@ methods: {
   
   <cpn><button slot="left">xxx</button></cpn>
   指定了插槽名字就只会影响那个被指定的插槽
+  
+  
+  <body>
+      <div id="app">
+          <cpn><div slot="123">123</div></cpn>
+      </div>
+  </body>
+  
+  <template id="cpn">
+      <div>
+          <slot name="123"><div>2</div></slot>
+          <slot><div>1</div></slot>
+          <slot name="123"><div>2</div></slot>
+      </div>
+  </template>
   ```
 
 * 作用域插槽
-  * 编译作用域
+
+  父组件想要拿到子组件里面的数据，进行定制：
+
+  ```html
+  <body>
+      <div id="app">
+        <!--默认是按照模板渲染的，结果为ul-->
+        <cpn></cpn>
+        <!--可以自己定制-->
+        <cpn>
+            <template slot-scope="slot">
+              <span>{{slot.data.join(' - ')}}</span>
+            </template>
+        </cpn>
+      </div>
+    </body>
+  
+    <template id="cpn">
+      <div>
+        <slot :data="dataList">
+          <ul>
+            <li v-for="item in dataList">{{item}}</li>
+          </ul>
+        </slot>
+      </div>
+    </template>
+  
+    <script src="../js/vue.js"></script>
+    <script>
+      const cpn = {
+        template: "#cpn",
+        data() {
+          return {
+            dataList: ["Java", "Python", "JS", "C++"],
+          };
+        }
+      };
+      const app = new Vue({
+        el: "#app",
+        data: {},
+        methods: {},
+        components: {
+          cpn,
+        },
+      });
+    </script>
+  ```
+
+  父组件替换插槽的标签，但是**内容由子组件来提供**
+
+* 前段复杂化带来的问题：
+
+  
+
+![](vue/Snipaste_2020-12-25_14-58-32.png)
+
+* 模块化可以通过匿名函数闭包实现，(ES5)
+
+  ```js
+  var module = (funtion(){
+   	var flag=true;
+      var obj={flag:flag}
+  	return obj
+  })()
+  ```
+
+  
+
+  想要用模块里面的东西，匿名函数返回一个对象即可，但是不推荐这种办法，现在已经有模块化的通用规范了。。。
+
+* ES6模块化(vscode要安装live server插件，使代码在服务器中运行)
+
+  ```html
+  <body>
+      
+  </body>
+  <script type="module" src="one.js"></script>
+  <script type="module" src="two.js"></script>
+  ```
+
+  one.js
+
+  ```js
+  var flag=true;
+  
+  //method 1
+  export{
+      flag
+  }
+  // method 2
+  export var season=500
+  
+  // method 3
+  export function func1(num1,num2){return num1*num2}
+  export class Person{
+      run(){
+          console.log("running"); 
+      }
+  }
+  
+  // method 4
+  const addr = "Wenzhou"
+  // 默认的导出只能有一个
+  export default addr;
+  // 函数
+  // export default function(arg){
+  //     console.log(arg);
+  // }
+  ```
+
+  two.js
+
+  ```js
+  // import {flag, season} from "./one.js";
+  // console.log(flag)
+  
+  // // import {season} from "./one.js"
+  // console.log(season)
+  
+  // import {Person,func1} from "./one.js"
+  // console.log(func1(123,456.2))
+  // const p = new Person()
+  // p.run()
+  
+  // //默认导入的参数
+  // import myaddr from "./one.js"
+  // console.log(myaddr);
+  
+  //统一全部导入
+  import * as myImported from "./one.js"
+  //默认参数用default
+  console.log(myImported.default);
+  console.log(myImported.flag);
+  ```
+
+* webpack（依赖node环境）
+
+  webpack是一个现代的JavaScript应用的静态模块打包工具
+
+* 打包图片的时候，若图片大于url-loader的limit，则不会被转为base64，而是连同文件一起打包到dist下面
+
+  url-loader和file-loader不要重复使用，否则没有效果
+
+  > If the file is greater than the limit (in bytes) the **[file-loader](https://www.webpackjs.com/loaders/file-loader/) is used by default** and all query parameters are passed to it.
+
+  涉及到url路径问题的，在webpack.config.js里面ouput加上publicPath，就会自动去这个路径下面找
+
+  ![](vue/QQ截图20201228191302.png)
+
+* webpack ES6转ES5：babel-loader
+
+* npm安装vue，将vue视作模块
+
+  `import Vue from "vue/dist/vue.js"`
+
+  也可以在webpack配置文件里加上
+
+  ```json
+    resolve: {
+        alias:{
+          'vue$': 'vue/dist/vue.esm.js' 
+        }
+    }
+  ```
+
+  多页面通过路由跳转
+
+  ### Vue的终极使用方案
+
+  * 单独抽取组件
+
+  ![](vue/QQ截图20201228204941.png)
+
+  ![](vue/QQ截图20201228205020.png)
+
+  * 整个组件放到其他文件中
+
+    ![](vue/QQ截图20201228205257.png)
+
+    ![](vue/QQ截图20201228205235.png)
+
+  * 进一步，放到.vue文件下，分类放置代码
+
+  ![](vue/QQ截图20201228205525.png)
+  * 安装loader：（可能需要对vue-loader降级，13.x.x即可）
+
+  ![](vue/QQ截图20201228205831.png)
+
+  ​	并在webpack配置文件中加入模块
+
+  * 组件树：App.vue引用其它的组件
+
+  * 解决后缀问题
+
+  ![](vue/QQ截图20201228211115.png)
+
+## 6 Webpack Plugin、Vue CLI
+
+* 版权标注
+
+![](vue/QQ截图20201228221748.png)
+
+* htmlwebpackplugin会把html也给打包进去，js会自动生成
+
+![](vue/QQ截图20201228223428.png)
