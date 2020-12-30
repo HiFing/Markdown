@@ -902,6 +902,8 @@ methods: {
   console.log(myImported.flag);
   ```
 
+* webpack和gulp的区别：https://www.cnblogs.com/lovesong/p/6413546.html
+
 * webpack（依赖node环境）
 
   webpack是一个现代的JavaScript应用的静态模块打包工具
@@ -1059,3 +1061,19 @@ methods: {
   ```
 
 ## 7  Vue CLI
+
+* ```js
+  new Vue({
+    el: '#app',
+    components: { App },
+    template: '<App/>'
+  })
+  //既有el又有template，会将模板挂载到el上面替换掉
+  //这里的<App/>就是在组件注册components里面的组件
+  ```
+
+* ![](vue/QQ截图20201230223032.png)
+
+  ![](vue/QQ截图20201230223451.png)
+
+  runtime-only在main.js中使用render函数
