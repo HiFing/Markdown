@@ -1060,7 +1060,7 @@ methods: {
   })
   ```
 
-## 7  Vue CLI
+## 7  Vue CLI、箭头函数
 
 * ```js
   new Vue({
@@ -1077,3 +1077,72 @@ methods: {
   ![](vue/QQ截图20201230223451.png)
 
   runtime-only在main.js中使用render函数
+  
+  此时，template先被vue-template-compiler编译，之后直接通过render->vdom->UI的方式解析
+  
+  render函数用法：
+  
+  ![](vue/Snipaste_2020-12-30_23-31-38.png)
+  
+  runtime-only性能更高、代码更少
+
+* ![](vue/Snipaste_2020-12-30_23-35-34.png)
+
+  
+
+![](vue//Snipaste_2020-12-30_23-36-08.png)
+
+* CLI 3+ 在根目录下自己添加vue.config.js可以和默认的配置合并
+
+  e.g.   ![](vue/Snipaste_2020-12-31_00-26-24.png)
+
+  ```js
+  module.exports={
+      ......
+  }
+  ```
+
+* 箭头函数：
+
+  ```js
+  const ccc = () => {
+      
+  }
+  
+  const ccc = (n1, n2) => {
+      return n1 + n2
+  }
+  
+  //一个参数的时候，括号可以省略
+  const ccc = num => {
+      return num * num
+  }
+  
+  //函数中只有一行代码时，自动返回
+  const ccc = (num1, num2) => num1 + num2
+  
+  const ccc = () => console.log("hello")
+  ```
+
+* 箭头函数this的使用
+
+  this向外层作用域一层一层往外查找，直到有this的定义
+
+  ```js
+  const obj ={
+      aaa(){
+          setTimeout(function(){
+              this
+              //这个this指向window，因为是window在调用他
+          },1000)
+  
+          setTimeout(() => {
+              this
+              //这个this指向外层作用域中的this，若在一个对象中，就是那个对象
+          })
+      }
+  }
+  ```
+
+## 8 Vue-router
+
