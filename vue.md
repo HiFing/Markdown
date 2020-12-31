@@ -1146,3 +1146,143 @@ methods: {
 
 ## 8 Vue-router
 
+* 思想：一个url对应一个组件
+
+* html 5 的history模式
+
+  > history.back() / history.forward
+  >
+  > history.go()
+  >
+  > history.pushState()
+
+  location.hash
+
+  location.href（这个方法是要刷新页面的）
+
+* ```html
+  <router-link to="/">Home</router-link>
+  会被渲染成a标签
+  若想改变渲染的方式，可以改tag属性
+  <router-link to="/" tag="button">Home</router-link>
+  点击标签对应的组件会被显示在<router-view></router-view>里面
+  ```
+
+* 虽然`history.pushState({},'','homey')`push了一个不存在的组件并不影响页面渲染，但是在back和forward的来回切换中会使得页面在homey下为空白
+
+* 重定向
+
+  ```js
+  const routes = [
+    {
+      path: '/',
+      redirect: '/home'
+    }
+    ,
+    {
+      path: '/home',
+      name: 'Home',
+      component: Home
+    },
+    {
+      path: '/about',
+      name: 'About',
+      component: () => import(/* webpackChunkName: "about" */ '../views/About.vue')
+    },
+    {
+      path: '/extra',
+      component: Extra
+    }
+  ]
+  ```
+
+* 代码跳转
+
+  
+
+![](vue/QQ截图20201231191903.png)
+
+* 动态路由
+
+  注意区分：
+
+  > this.$router表示拿到的router对象，这是在router文件夹下面index.js输出的
+  >
+  > ```js
+  > export default new Router({
+  >   //注意这里的routes
+  >   routes: [
+  >     {
+  >       path: '/',
+  >       redirect: '/helloworld'
+  >     },
+  >     {
+  >       path: '/helloworld',
+  >       name: 'helloworld',
+  >       component: HelloWorld
+  >     },
+  >     {
+  >       path: '/extra',
+  >       name: 'extra',
+  >       component: Extra
+  >     }
+  >   ],
+  >   mode: 'history',
+  >   linkActiveClass: 'active'
+  > })
+  > ```
+  >
+  > this.$route表示当前活跃的那个路由
+
+  this.$route.params.xxx获取url后面的
+
+  * 玩法：
+
+    ```html
+    路由配置：
+    {
+        path: '/extra/:userId',
+        name: 'extra',
+        component: Extra
+    }
+    
+    页面设置链接跳转：
+    <router-link tag="button" replace :to="'/extra/' + user">extra</router-link>
+    <script>
+    export default {
+      name: "App",
+      methods: {},
+      data() {
+        return {
+          user: "lisi",
+        };
+      },
+    };
+    </script>
+    
+    组件获取：
+    <template>
+      <div>Extra
+        <p>
+          {{user}}
+        </p>
+      </div>
+    </template>
+    
+    <script>
+    export default {
+      data() {
+        return {}
+      },
+      created() {},
+      mounted() {},
+      computed:{
+        user(){
+          return this.$route.params.userId
+        }
+      }
+    }
+    </script>
+    ```
+
+    
