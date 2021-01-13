@@ -1285,4 +1285,56 @@ methods: {
     </script>
     ```
 
-    
+  * 思路：src路径下要有router文件夹，里面有一个index.js文件作为入口，并在里面加上Vue.use(Router)，使用路由模块，配置好映射关系（需要导入组件，可以配置默认路径、重定向的路径、history/hash、linkActiveClass）等信息之后导出模块，在main.js里面导入模块，挂载到Vue对象里面，路由才会生效。之后再App.vue里面添加router-link，设置其属性（to、tag、replace。。。），并添加router-view作为占位。
+
+* 打包后的js：
+
+  > app.js业务代码
+  >
+  > manifest.js底层支撑
+  >
+  > vendor.js第三方框架（包括vue、vue-router、axios等等）
+
+* 路由懒加载
+
+  应用情景：打包出来的js太大，加载会比较慢，导致前端页面会出现短暂的空白
+
+  ![](vue/QQ截图20210113212741.png)
+
+  这样一来，js文件就变小了，按需加载
+
+* 嵌套路由
+
+  首先创建子组件，并在父组件的路径映射下配置子组件的路径
+
+  ```js
+  	{
+        path: '/extra/',
+        name: 'extra',
+        component: Extra,
+        children: [
+          {
+            path: 'one',
+            component: ExtraOne
+          },
+          {
+            path: 'two',
+            component: ExtraTwo
+          }
+        ]
+      }
+  ```
+
+  父组件里面设置子组件的路由，注意子组件的路由路径要以父组件的路径为前缀，否则地址会出错
+
+  ```html
+  <template>
+    <div>
+      <router-link to="/extra/one">One</router-link>
+      <router-link to="/extra/two">Two</router-link>
+      <router-view></router-view>
+    </div>
+  </template>
+  ```
+
+  
