@@ -610,7 +610,7 @@ methods: {
   ```
 
   ```js
-  const cpn = {
+  	const cpn = {
           template: '#cpn',
           data() {
               return {}
@@ -1337,4 +1337,197 @@ methods: {
   </template>
   ```
 
+* query
+
+  ![](vue/QQ截图20210122215738.png)
+
+  ![](vue/QQ截图20210122215819.png)
+
+* 导航守卫
+
+  * 全局前置守卫
+
+    ```js
+    //前置守卫
+    router.beforeEach((to, from, next) => {
+      //要调用next函数!
+      next();
+      //next里面的参数不一定非得是空的~
+    });
+    ```
+
+  * 全局后置钩子
+
+    ```js
+    router.afterEach((to, from) => {
+      console.log(to,from);
+    });
+    ```
+
+  * 路由独享守卫
+
+    ```js
+    routes: [
+        {
+          path: '/foo',
+          component: Foo,
+          beforeEnter: (to, from, next) => {
+            // ...
+          }
+        }
+      ]
+    ```
+
+  * [组件内的守卫](https://router.vuejs.org/zh/guide/advanced/navigation-guards.html#%E5%85%A8%E5%B1%80%E8%A7%A3%E6%9E%90%E5%AE%88%E5%8D%AB)
+
+    ```js
+    const Foo = {
+      template: `...`,
+      beforeRouteEnter (to, from, next) {
+        // 在渲染该组件的对应路由被 confirm 前调用
+        // 不！能！获取组件实例 `this`
+        // 因为当守卫执行前，组件实例还没被创建
+      },
+      beforeRouteUpdate (to, from, next) {
+        // 在当前路由改变，但是该组件被复用时调用
+        // 举例来说，对于一个带有动态参数的路径 /foo/:id，在 /foo/1 和 /foo/2 之间跳转的时候，
+        // 由于会渲染同样的 Foo 组件，因此组件实例会被复用。而这个钩子就会在这个情况下被调用。
+        // 可以访问组件实例 `this`
+      },
+      beforeRouteLeave (to, from, next) {
+        // 导航离开该组件的对应路由时调用
+        // 可以访问组件实例 `this`
+      }
+    }
+    ```
+
+  * 完整的导航解析流程
+    1. 导航被触发。
+    2. 在失活的组件里调用 `beforeRouteLeave` 守卫。
+    3. 调用全局的 `beforeEach` 守卫。
+    4. 在重用的组件里调用 `beforeRouteUpdate` 守卫 (2.2+)。
+    5. 在路由配置里调用 `beforeEnter`。
+    6. 解析异步路由组件。
+    7. 在被激活的组件里调用 `beforeRouteEnter`。
+    8. 调用全局的 `beforeResolve` 守卫 (2.5+)。
+    9. 导航被确认。
+    10. 调用全局的 `afterEach` 钩子。
+    11. 触发 DOM 更新。
+    12. 调用 `beforeRouteEnter` 守卫中传给 `next` 的回调函数，创建好的组件实例会作为回调函数的参数传入。
+
+* keepalive
+
+  路由切换默认要经历组件的生命周期，可以使用keep-alive防止组件销毁
+
+  ```html
+  <keep-alive exclude="xxx,xxx"><router-view /></keep-alive>
+  ```
+
+  exclude排除组件，逗号后面不要加空格！！！
+
+  keepalive和activated、deactivated有关
+
+  ```js
+  //父组件里面
+  //this指向的都是这个父组件
+    activated(){
+      //keepalive时，组件被激活就跳转到组件内（this.）path链接
+      this.$router.push(this.path)
+    },
+    //组件内的导航守卫
+    beforeRouteLeave(to, from, next){
+       //离开该路由时，把当前组件内的路由赋给path
+      this.path = this.$route.path
+      next()
+    }
+  ```
+
+* 别名
+
+  ![](vue/QQ截图20210122220655.png)
+
+  脚手架3+已经配好了，
+
+  @表示src文件夹下
+
+  自定义别名
+
+  ```js
+  //项目配置文件vue.config.js
+  const path = require("path");
+  function resolve(dir) {
+    return path.join(__dirname, dir);
+  }
   
+  module.exports = {
+    configureWebpack: {
+      resolve: {
+        alias: {
+          assets: resolve("@/assets"),
+          components: resolve("@/components"),
+          views: resolve("@/views"),
+        },
+      },
+    },
+  };
+  ```
+
+  注意标签里面的src要在前面加上波浪线
+
+  ```html
+  <img src="~assets/img/home.svg" />
+  ```
+
+## 9 Promise
+
+* ![](vue/QQ截图20210122225034.png)
+
+  回调地狱：多层回调。。。
+
+* 链式编程（引例）
+
+  ```js
+  //等处理完setTimeout里面的东西再去处理then
+  //setTimeout模拟ajax
+        new Promise((resolve, reject) => {
+          setTimeout(() => {
+            console.log("1");
+            console.log("1");
+            console.log("1");
+            
+            //成功的话传给resolve的数据会传到then里头
+            resolve("helloworld")
+            
+            //失败的时候调用reject的数据传到catch里头
+            reject('error')
+          }, 1000);
+        })
+  		//不要在上面处理网络请求，要在then里面处理！！！
+  		//"helloworld"会来到data这里
+  		//catch也是跟then差不多的
+          .then((data) => {
+          console.log("2");
+          console.log("2");
+          console.log("2");
+          return new Promise((resolve, reject) => {
+            setTimeout(() => {
+              console.log("3");
+              console.log("3");
+              console.log("3");
+            });
+          }).then(() => {
+            console.log("4");
+            console.log("4");
+            console.log("4");
+          });
+        });
+  ```
+
+* 一般情况下是有异步操作时，使用promise对异步操作进行封装
+
+
+
+## 10 Vuex
+
+## 11 Axios
+
