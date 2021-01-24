@@ -1525,9 +1525,412 @@ methods: {
 
 * 一般情况下是有异步操作时，使用promise对异步操作进行封装
 
+* promise链式调用
 
+  return new Promise(resolve => {resolve(xxx)})的简写：return Promise.resovle(xxx)，再简写，省略掉Promise.resolve：return xxx，之后会在then里面处理
+
+  ![](vue/QQ截图20210123163211.png)
+
+  reject的简写也是类似Promise.reject，手动throw也是可以被catch抓到的
+
+* Promise.all可以处理判断多次请求是否都成功完成
 
 ## 10 Vuex
 
+* 官话：Vuex 是一个专为 Vue.js 应用程序开发的**状态管理模式**。它采用集中式存储管理应用的所有组件的状态，并以相应的规则保证状态以一种可预测的方式发生变化。
+
+  ![](vue/QQ截图20210123165352.png)
+
+  图上的方法虽然可以获取公共的属性，但是这不是响应式的
+
+* ![](vue/QQ截图20210123165809.png)
+
+* ![](vue/QQ截图20210123204143.png)
+
+  如果mutations里面有异步操作，要放到actions里面，因为devtools不能跟踪异步操作
+
+  不要直接修改state，这样就不能跟踪错误了
+
+  browser要装插件![](vue/QQ截图20210123205310.png)
+
+* 基本使用
+
+  ```html
+  <template>
+    <div id="app">
+      <button @click="add">+</button>
+      <h2>{{ $store.state.counter }}</h2>
+      <button @click="subtract">-</button>
+      <hello-world></hello-world>
+    </div>
+  </template>
+  
+  <script>
+  import HelloWorld from './components/HelloWorld.vue';
+  
+  export default {
+    name: "App",
+    components: {
+      HelloWorld,
+    },
+    data() {
+      return {}
+    },
+    methods:{
+      add(){
+        //要调用vuex里面的方法，得commit
+        this.$store.commit('counterIncre')
+      },
+      subtract(){
+        this.$store.commit('counterDecre')
+      }
+    }
+  };
+  </script>
+  ```
+
+  ```js
+  import { createStore } from 'vuex';
+  
+  const store = createStore({
+    //保存共享状态
+    state: {
+      counter: 500
+    },
+    mutations: {
+      counterIncre(state){
+        state.counter++;
+      },
+      counterDecre(state){
+        state.counter--;
+      }
+    },
+    actions: {},
+    //类似计算属性
+    getters: {},
+    modules: {},
+  });
+  
+  export default store;
+  
+  ```
+
+* 单一状态树
+
+  ![](vue/QQ截图20210123215618.png)
+
+* getters用法
+
+  ```js
+  const store = createStore({
+    state: {
+      counter: 500,
+      people: [
+        { name: "zhangsan", age: 18 },
+        { name: "lisi", age: 24 },
+        { name: "wangwu", age: 9 },
+        { name: "zhaoliu", age: 32 },
+      ],
+    },
+    getters: {
+      counterSquare(state) {
+        return state.counter * state.counter;
+      },
+      peopleOlderThanTwenty(state) {
+        return state.people.filter((item) => item.age > 20);
+      },
+      //可以传第二个参数，获取getters
+      numberOfPeopleOlderThanTwenty(state, getters){
+        return getters.peopleOlderThanTwenty.length;
+      }
+    }
+  });
+  ```
+
+  ```html
+  <template>
+    <div>
+      <h2>{{ $store.state.counter }}</h2>
+      <h2>{{$store.getters.peopleOlderThanTwenty}}</h2>
+      <h2>{{$store.getters.numberOfPeopleOlderThanTwenty}}个</h2>
+    </div>
+  </template>
+  ```
+
+  * 想要根据参数来确定getters，可以返回一个函数，在函数里面实现操作：
+
+    ```js
+    <h2>{{ $store.getters.peopleOlderThan(9) }}</h2>
+    
+    //套娃
+    peopleOlderThan(state) {
+        return age => {
+        	return state.people.filter((item) => item.age > age);
+        };
+    },
+    ```
+
+* mutations：更改 Vuex 的 store 中的状态的唯一方法是提交 mutation。
+
+  可以向 `store.commit` 传入额外的参数，在大多数情况下，载荷应该是一个对象，这样可以包含多个字段并且记录的 mutation 会更易读：
+
+  ```js
+  //mutations
+  counterIncreWithNum(state, obj) {
+      state.counter += obj.num;
+  }
+      
+  //click方法
+  addWithNum(n) {
+      let obj = {
+          num: n,
+      };
+      this.$store.commit("counterIncreWithNum", obj);
+  }
+  
+  //ele
+  <button @click="addWithNum(5)">+5</button>
+  ```
+
+  * **mutaions提交风格**
+
+    提交 mutation 的另一种方式是直接使用**包含 `type` 属性的对象**：
+
+    ```js
+    store.commit({
+      //type对应mutations里面的方法
+      type: 'increment',
+      amount: 10
+    })
+    ```
+
+    当使用对象风格的提交方式，整个对象都作为载荷传给 mutation 函数，因此 handler 保持不变：
+
+    ```js
+    mutations: {
+      //payload为一个对象
+      increment (state, payload) {
+        state.count += payload.amount
+      }
+    }
+    ```
+
+  * **mutation**响应规则
+
+    ==（2021/1/23：Vue3可以直接响应。。。）==
+
+    ==（2021/1/23：Vue3请查询相关文档，api不一样了！）==
+
+    ![](vue/QQ截图20210123230902.png)
+
+    > **delete state.info.age也不能做到响应式!!!**
+    >
+    > 可以用Vue.delete来删
+
+    ![](vue/QQ截图20210123231056.png)
+
+    这类似于数组的修改：
+
+    ![](vue/QQ截图20210123231428.png)
+
+* mutations类型常量：
+
+  ### 使用常量替代 Mutation 事件类型
+
+  使用常量替代 mutation 事件类型在各种 Flux 实现中是很常见的模式。这样可以使 linter 之类的工具发挥作用，同时把这些常量放在单独的文件中可以让你的代码合作者对整个 app 包含的 mutation 一目了然：
+
+  ```js
+  // mutation-types.js
+  export const SOME_MUTATION = 'SOME_MUTATION'
+  // store.js
+  import Vuex from 'vuex'
+  import { SOME_MUTATION } from './mutation-types'
+  
+  const store = new Vuex.Store({
+    state: { ... },
+    mutations: {
+      // 我们可以使用 ES2015 风格的计算属性命名功能来使用一个常量作为函数名
+      [SOME_MUTATION] (state) {
+        // mutate state
+      }
+    }
+  })
+  ```
+
+  这样的话，在提交mutation的时候，type就用这个常量来替换
+
+*  **mutation 必须是同步函数**。每一条 mutation 被记录，devtools 都需要捕捉到前一状态和后一状态的快照。因为当 mutation 触发的时候，回调函数还没有被调用，devtools 不知道什么时候回调函数实际上被调用——实质上任何在回调函数中进行的状态的改变都是不可追踪的。
+
+* 想要进行异步操作，得先调用dispatch一个action处理异步操作，在action里面commit mutation才行
+
+  e.g.
+
+  ```js
+  //cpn
+  addDelay(){
+      this.$store.dispatch(INCREMENT + 'AFTERONESEC',{xxx:xxx});
+  }
+  
+  //actions
+  actions: {
+      [INCREMENT + 'AFTERONESEC'](context,payload){
+          setTimeout(() => {
+              context.commit(INCREMENT)
+          },1000)
+      }
+  }
+      
+  //mutations
+  [INCREMENT](state) {
+      state.counter++;
+  }
+  ```
+
+  如果想要设置回调的操作，可以对action进行改进，用==**promise**==封装代码，再在cpn里面设置then和catch即可
+
+  ```js
+  //actions
+  [INCREMENT + "AFTERONESEC"](context, payload) {
+      return new Promise((resolve,reject) => {
+          setTimeout(() => {
+              context.commit(INCREMENT);
+              console.log(payload);
+              resolve("operation completed");
+          }, 1000);
+      });
+  }
+  
+  //cpn
+  addDelay(){
+      this.$store.dispatch(INCREMENT + 'AFTERONESEC', {name: 'payload'}).then(msg => {console.log(msg);})
+  }
+  ```
+
+* modules
+
+  由于使用单一状态树，应用的所有状态会集中到一个比较大的对象。当应用变得非常复杂时，store 对象就有可能变得相当臃肿。
+
+  关于模块内访问根属性等等的情况，详见：https://vuex.vuejs.org/zh/guide/modules.html
+
+* **对象的解构**
+
+  ```js
+  	actions: {
+        // 在这个模块中， dispatch 和 commit 也被局部化了
+        // 他们可以接受 `root` 属性以访问根 dispatch 或 commit
+          
+          
+          
+        //这种写法就把context解构了
+        //这是按照名字来分配的!!!跟顺序无关
+        someAction ({ dispatch, commit, getters, rootGetters }) {
+            
+            
+            
+          getters.someGetter // -> 'foo/someGetter'
+          rootGetters.someGetter // -> 'someGetter'
+  
+          dispatch('someOtherAction') // -> 'foo/someOtherAction'
+          dispatch('someOtherAction', null, { root: true }) // -> 'someOtherAction'
+  
+          commit('someMutation') // -> 'foo/someMutation'
+          commit('someMutation', null, { root: true }) // -> 'someMutation'
+        },
+        someOtherAction (ctx, payload) { ... }
+      }
+  ```
+
+* store文件夹的结构
+
+  ![](vue/QQ截图20210124151600.png)
+
+  state就放到index.js里面就好了
+
+  其他的通过import xxx from xxx来导入到index.js
+
 ## 11 Axios
 
+* ![](vue/QQ截图20210124153155.png)
+
+* ```js
+   axios({
+       url: "http://123.207.32.32:8000/home/multidata",
+       method: "get",
+       //参数就会拼接到url上
+       params: {
+           xxx:xxx,
+           xxx:xxx
+       },
+   }).then((res) => {
+       console.log(res);
+   });
+   
+   axios.get(url,{
+       params:{
+           xxx:xxx
+       }
+   }).then(() => {})
+   ```
+
+* 并发请求api
+
+  ```js
+  axios
+    .all([
+      axios.get("http://123.207.32.32:8000/home/multidata"),
+      axios.get("http://123.207.32.32:8000/home/multidata"),
+    ])
+    .then((results) => {
+      //results此时为两个请求返回的结果数组
+      console.log(results);
+    });
+  
+  
+    .then(axios.spread((res1,res2) => {
+      //这种方法可以把结果拆分
+    }))
+  ```
+
+* BaseURL是固定的：
+
+  > 配置全局属性
+  >
+  > axios.defaults.baseURL = "http://123.207.32.32:8000";
+  >
+  > axios.defaults.timeout = 5000;
+  >
+  > 这样的话，请求里面的地址就直接接在后面写
+  >
+  > 
+  >
+  > 可是，建议不要配置全局的属性，因为这样对多个服务的获取会比较混乱
+  >
+  > 可以逐个实例化
+  >
+  > ```js
+  > const instanceOne = axios.create({
+  >   baseURL: "http://123.207.32.32:8000",
+  >   timeout: 5000
+  > });
+  > 
+  > instanceOne({
+  >   url: "/home/multidata"
+  > }).then(res => {
+  >   console.log(res);
+  > })
+  > 
+  > const instanceTwo = axios.create({
+  >   baseURL: "http://123.207.32.32:8000",
+  >   timeout: 1000
+  > })
+  > 
+  > instanceTwo({
+  >   url: "/home/multidata"
+  > }).then(res => {
+  >   console.log(res);
+  > })
+  > ```
+  >
+  > 
+
+  注意：params用于get请求，对象的值会被拼接在url后面，而data用于post请求（作为请求体）
