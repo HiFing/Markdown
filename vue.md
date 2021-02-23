@@ -1934,3 +1934,96 @@ methods: {
   > 
 
   注意：params用于get请求，对象的值会被拼接在url后面，而data用于post请求（作为请求体）
+
+* 样例：
+
+  > ```js
+  > import axios from 'axios'
+  > export function request(config) {
+  >   // const instance = axios.create({
+  >   //   baseURL: 'xxx',
+  >   //   timeout: 5000
+  >   // })
+  > 
+  >   // instance(config.baseConfig).then(config.success(res)).catch(config.failure(res))
+  > 
+  >   // 这里包装了一层Promise是防止框架更换导致结构改变，用promise之后，接口还是then和catch，和axios一样
+  >   // return new Promise((resolve, reject) => {
+  >   //   const instance = axios.create({
+  >   //     baseURL: 'xxx',
+  >   //     timeout: 5000
+  >   //   })
+  > 
+  >   //   instance(config).then(res => resolve(res)).catch(err => reject(err))
+  >   // })
+  > 
+  >   const instance = axios.create({
+  >     baseURL: 'xxx',
+  >     timeout: 5000
+  >   })
+  >   return instance(config)
+  > }
+  > 
+  > // export function request(config, success, failure) {
+  > //   const instance = axios.create({
+  > //     baseURL: 'xxx',
+  > //     timeout: 5000
+  > //   })
+  > 
+  > 
+  > 
+  > request(config).then(res => {
+  >   console.log(res);
+  > }).catch(err => {
+  >   console.log(err);
+  > })
+  > ```
+
+* 拦截器
+
+  ```js
+  //main.js
+  request(config).then(res => {
+    console.log(res);
+  }).catch(err => {
+    console.log(err);
+  })
+  
+  
+  //request.js
+  export function request(config) {
+      
+    const instance = axios.create({
+      baseURL: 'http://xxx',
+      timeout: 5000
+    })
+  
+    instance.interceptors.request.use(config => {
+      //拿了这个config要换回去的！
+  
+      //可以拦截config，多配置信息再返回
+      //可以加请求的动画，请求成功后取消就行
+      //可以加token，判断有没有携带
+      console.log(config);
+      return config
+    }, err => {
+      console.log(err);
+    })
+  
+      
+    //这里的res和err就作为外部调用成功和失败的传参了
+    instance.interceptors.response.use(res => {
+      //因为此时是请求成功了，拿到的是服务器的响应
+      // console.log(res);
+      return res
+    }, err => {
+      console.log(err);
+    })
+  
+    return instance(config)
+  }
+  ```
+
+## 12 项目笔记
+
+* git使用
